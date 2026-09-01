@@ -1,14 +1,17 @@
 """
 github_scanner.py — Live GitHub Repository Scanner for QuantumReady
 
-Fetches repository file trees via GitHub REST API, downloads source files,
-filters out binaries/dependencies/lockfiles, and scans code using QuantumReady's
-existing regex and risk analysis engine.
+Fetches repository files via high-speed GitHub zip streaming with fallback
+to GitHub REST API tree recursion. Scans code using QuantumReady's
+regex and risk analysis engine with full-file auto-remediation.
 """
 
 import os
 import re
 import base64
+import tempfile
+import zipfile
+import shutil
 from typing import Dict, List, Any, Optional, Tuple, Callable
 import urllib.request
 import urllib.error
@@ -16,6 +19,7 @@ import json
 
 import scanner
 import risk_engine
+import fix_suggester
 
 
 class GitHubScanError(Exception):
@@ -70,11 +74,9 @@ def parse_github_url(url: str, branch: Optional[str] = None) -> Tuple[str, str, 
       - owner/repo
     """
     clean_url = url.strip().rstrip('/')
-    # Strip optional .git suffix
     if clean_url.endswith('.git'):
         clean_url = clean_url[:-4]
 
-    # Regex pattern matching GitHub URLs
     pattern = r"^(?:https?:\/\/)?(?:www\.)?github\.com\/([^\/\s]+)\/([^\/\s]+)(?:\/tree\/([^\/\s]+(?:\/[^\/\s]+)*))?"
     match = re.match(pattern, clean_url, re.IGNORECASE)
 
@@ -95,10 +97,7 @@ def parse_github_url(url: str, branch: Optional[str] = None) -> Tuple[str, str, 
 
 
 def make_github_request(url: str, token: Optional[str] = None, accept: str = "application/vnd.github+json") -> Tuple[int, Dict[str, Any], Any]:
-    """
-    Execute an HTTP request to the GitHub API or raw content URL.
-    Returns (status_code, headers_dict, decoded_body_or_json).
-    """
+    """Execute an HTTP request to GitHub API or raw URL."""
     headers = {
         "User-Agent": "QuantumReady-PQC-Scanner/2.0",
         "Accept": accept,
@@ -109,7 +108,7 @@ def make_github_request(url: str, token: Optional[str] = None, accept: str = "ap
 
     req = urllib.request.Request(url, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
+        with urllib.request.urlopen(req, timeout=25) as resp:
             status = resp.status
             resp_headers = dict(resp.headers)
             body = resp.read()
@@ -135,9 +134,9 @@ def make_github_request(url: str, token: Optional[str] = None, accept: str = "ap
             )
 
         if status == 404:
-            raise GitHubRepoNotFoundError("GitHub repository or branch not found. Verify the URL and branch name (or ensure token has repo access if private).")
+            raise GitHubRepoNotFoundError("GitHub repository or branch not found. Verify the URL and branch name.")
 
-        raise GitHubScanError(f"GitHub API returned error {status}: {err_body}")
+        raise GitHubScanError(f"GitHub returned HTTP {status}: {err_body}")
     except urllib.error.URLError as e:
         raise GitHubScanError(f"Failed to connect to GitHub: {str(e.reason)}")
     except Exception as e:
@@ -147,9 +146,12 @@ def make_github_request(url: str, token: Optional[str] = None, accept: str = "ap
 def get_default_branch(owner: str, repo: str, token: Optional[str] = None) -> str:
     """Fetch default branch for repository (e.g. 'main' or 'master')."""
     url = f"https://api.github.com/repos/{owner}/{repo}"
-    _, _, data = make_github_request(url, token=token)
-    if isinstance(data, dict) and 'default_branch' in data:
-        return data['default_branch']
+    try:
+        _, _, data = make_github_request(url, token=token)
+        if isinstance(data, dict) and 'default_branch' in data:
+            return data['default_branch']
+    except Exception:
+        pass
     return 'main'
 
 
@@ -163,10 +165,7 @@ def fetch_repository_tree(owner: str, repo: str, branch: str, token: Optional[st
 
 
 def filter_source_files(tree_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """
-    Filter git tree items to only keep supported source files,
-    ignoring binaries, vendor/node_modules directories, and lockfiles.
-    """
+    """Filter git tree items to only keep supported source files."""
     filtered = []
     for item in tree_items:
         if item.get('type') != 'blob':
@@ -175,11 +174,9 @@ def filter_source_files(tree_items: List[Dict[str, Any]]) -> List[Dict[str, Any]
         path = item.get('path', '')
         size = item.get('size', 0)
 
-        # Skip oversized files
         if size > MAX_FILE_SIZE_BYTES:
             continue
 
-        # Check ignored path segments
         path_parts = path.replace('\\', '/').split('/')
         if any(part in IGNORED_DIRECTORIES for part in path_parts[:-1]):
             continue
@@ -188,7 +185,6 @@ def filter_source_files(tree_items: List[Dict[str, Any]]) -> List[Dict[str, Any]
         if filename.lower() in IGNORED_FILENAMES:
             continue
 
-        # Check extension against scanner.SUPPORTED_EXTENSIONS
         _, ext = os.path.splitext(filename)
         if ext.lower() in scanner.SUPPORTED_EXTENSIONS:
             filtered.append(item)
@@ -197,10 +193,7 @@ def filter_source_files(tree_items: List[Dict[str, Any]]) -> List[Dict[str, Any]
 
 
 def fetch_raw_file_content(owner: str, repo: str, branch: str, file_path: str, token: Optional[str] = None) -> str:
-    """
-    Fetch raw file content from GitHub using raw.githubusercontent.com
-    with fallback to the GitHub contents API.
-    """
+    """Fetch raw file content from GitHub raw usercontent or contents API."""
     raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{file_path}"
     try:
         _, _, data = make_github_request(raw_url, token=token, accept="text/plain")
@@ -208,7 +201,6 @@ def fetch_raw_file_content(owner: str, repo: str, branch: str, file_path: str, t
             return data.decode('utf-8', errors='ignore')
         return str(data)
     except Exception:
-        # Fallback to GitHub Contents API
         api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{file_path}?ref={branch}"
         _, _, data = make_github_request(api_url, token=token)
         if isinstance(data, dict) and 'content' in data:
@@ -220,16 +212,12 @@ def fetch_raw_file_content(owner: str, repo: str, branch: str, file_path: str, t
 
 
 def scan_single_code_content(file_path: str, content: str) -> Dict[str, Any]:
-    """
-    Run code through existing QuantumReady scanner logic without saving to disk.
-    Reuses scanner.scan_text_with_lines and scanner.calculate_score.
-    """
+    """Run code through QuantumReady scanner and full auto-remediator."""
     findings = scanner.scan_text_with_lines(content)
     score, label = scanner.calculate_score(findings)
     matches = list(dict.fromkeys([f["vulnerability_type"] for f in findings]))
     
     try:
-        import fix_suggester
         fixed_code, changelog = fix_suggester.remediate_full_file(content, findings, filename=file_path)
     except Exception:
         fixed_code, changelog = content, []
@@ -246,6 +234,51 @@ def scan_single_code_content(file_path: str, content: str) -> Dict[str, Any]:
     }
 
 
+def download_github_zip_archive(owner: str, repo: str, branch: Optional[str], token: Optional[str] = None) -> Tuple[str, str]:
+    """
+    Download repository archive as a single zip file.
+    Returns (temp_dir_path, detected_branch).
+    """
+    candidates = [branch] if branch else ['main', 'master', 'trunk', 'develop']
+    headers = {
+        "User-Agent": "QuantumReady-PQC-Scanner/2.0",
+        "Accept": "*/*"
+    }
+    auth_token = token or get_github_token()
+    if auth_token:
+        headers["Authorization"] = f"Bearer {auth_token}"
+
+    for b in candidates:
+        if not b:
+            continue
+        zip_urls = [
+            f"https://codeload.github.com/{owner}/{repo}/zip/refs/heads/{b}",
+            f"https://github.com/{owner}/{repo}/archive/refs/heads/{b}.zip"
+        ]
+        for url in zip_urls:
+            try:
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    if resp.status == 200:
+                        tmp_zip = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
+                        shutil.copyfileobj(resp, tmp_zip)
+                        tmp_zip.close()
+                        
+                        # Extract zip
+                        extract_dir = tempfile.mkdtemp(prefix='qr_gh_')
+                        with zipfile.ZipFile(tmp_zip.name, 'r') as z:
+                            z.extractall(extract_dir)
+                        try:
+                            os.remove(tmp_zip.name)
+                        except Exception:
+                            pass
+                        return extract_dir, b
+            except Exception:
+                continue
+
+    raise GitHubRepoNotFoundError(f"Could not download repository archive for {owner}/{repo}. Verify repository visibility.")
+
+
 def scan_github_repository(
     repo_url: str,
     branch: Optional[str] = None,
@@ -253,57 +286,123 @@ def scan_github_repository(
     on_file_scanned: Optional[Callable[[Dict[str, Any]], None]] = None,
 ) -> Dict[str, Any]:
     """
-    End-to-end scanning of a GitHub repository:
-      1. Parses URL and resolves default branch if not provided.
-      2. Retrieves recursive file tree.
-      3. Filters source files.
-      4. Downloads and runs each file through scanner logic.
-      5. Invokes on_file_scanned callback for each file (if provided) for real-time streaming.
-      6. Returns comprehensive results summary.
+    End-to-end scanning of a GitHub repository with real-time streaming progress:
+      1. Downloads repo archive (fast, zero rate-limit issues) with fallback to REST API tree.
+      2. Scans each source file through scanner & auto-remediator.
+      3. Invokes on_file_scanned callback per file for real-time progress bar.
+      4. Returns structured results summary and analysis.
     """
     owner, repo, resolved_branch = parse_github_url(repo_url, branch=branch)
-    if not resolved_branch:
-        resolved_branch = get_default_branch(owner, repo, token=token)
-
-    tree = fetch_repository_tree(owner, repo, resolved_branch, token=token)
-    source_files = filter_source_files(tree)
-    total_files = len(source_files)
-
     files_result = []
     summary = {k: 0 for k in scanner.VULNERABILITY_PATTERNS.keys()}
     all_findings = []
+    total_files = 0
+    final_branch = resolved_branch or 'main'
 
-    for idx, item in enumerate(source_files, start=1):
-        file_path = item['path']
+    # Strategy 1: High-Speed Zip Streaming
+    try:
+        extract_dir, final_branch = download_github_zip_archive(owner, repo, resolved_branch, token=token)
+        # Find inner repo root folder if present
+        root_dir = extract_dir
+        inner = os.listdir(extract_dir)
+        if len(inner) == 1 and os.path.isdir(os.path.join(extract_dir, inner[0])):
+            root_dir = os.path.join(extract_dir, inner[0])
+
+        collected_paths = []
+        for dirpath, _, filenames in os.walk(root_dir):
+            rel_dir = os.path.relpath(dirpath, root_dir).replace('\\', '/')
+            parts = rel_dir.split('/')
+            if any(p in IGNORED_DIRECTORIES for p in parts if p and p != '.'):
+                continue
+            for fn in filenames:
+                if fn.lower() in IGNORED_FILENAMES:
+                    continue
+                _, ext = os.path.splitext(fn)
+                if ext.lower() in scanner.SUPPORTED_EXTENSIONS:
+                    full_p = os.path.join(dirpath, fn)
+                    rel_p = os.path.relpath(full_p, root_dir).replace('\\', '/')
+                    collected_paths.append((full_p, rel_p))
+
+        total_files = len(collected_paths)
+        for idx, (full_p, rel_p) in enumerate(collected_paths, start=1):
+            try:
+                with open(full_p, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read()
+                res = scan_single_code_content(rel_p, content)
+            except Exception as e:
+                res = {
+                    'path': rel_p,
+                    'matches': [],
+                    'findings': [],
+                    'score': 100,
+                    'label': 'SAFE',
+                    'original_code': '',
+                    'fixed_code': '',
+                    'changelog': [],
+                    'error': str(e)
+                }
+
+            for m in res['matches']:
+                summary[m] = summary.get(m, 0) + 1
+            all_findings.extend(res['findings'])
+            files_result.append(res)
+
+            if on_file_scanned:
+                on_file_scanned({
+                    'file_path': rel_p,
+                    'findings': res['findings'],
+                    'score': res['score'],
+                    'label': res['label'],
+                    'progress': {'scanned': idx, 'total': total_files},
+                })
+
+        # Cleanup extracted folder
         try:
-            content = fetch_raw_file_content(owner, repo, resolved_branch, file_path, token=token)
-            result = scan_single_code_content(file_path, content)
-        except Exception as e:
-            # If a single file fails to download, record safe empty result so scan continues
-            result = {
-                'path': file_path,
-                'matches': [],
-                'findings': [],
-                'score': 100,
-                'label': 'SAFE',
-                'error': str(e),
-            }
+            shutil.rmtree(extract_dir, ignore_errors=True)
+        except Exception:
+            pass
 
-        for m in result['matches']:
-            summary[m] = summary.get(m, 0) + 1
-        all_findings.extend(result['findings'])
-        files_result.append(result)
+    except Exception:
+        # Strategy 2: REST API Tree Fallback
+        if not resolved_branch:
+            resolved_branch = get_default_branch(owner, repo, token=token)
+            final_branch = resolved_branch
 
-        if on_file_scanned:
-            # Emit callback matching specification:
-            # { file_path, findings: [...], score, label, progress: {scanned, total} }
-            on_file_scanned({
-                'file_path': file_path,
-                'findings': result['findings'],
-                'score': result['score'],
-                'label': result['label'],
-                'progress': {'scanned': idx, 'total': total_files},
-            })
+        tree = fetch_repository_tree(owner, repo, resolved_branch, token=token)
+        source_files = filter_source_files(tree)
+        total_files = len(source_files)
+
+        for idx, item in enumerate(source_files, start=1):
+            file_path = item['path']
+            try:
+                content = fetch_raw_file_content(owner, repo, resolved_branch, file_path, token=token)
+                result = scan_single_code_content(file_path, content)
+            except Exception as e:
+                result = {
+                    'path': file_path,
+                    'matches': [],
+                    'findings': [],
+                    'score': 100,
+                    'label': 'SAFE',
+                    'original_code': '',
+                    'fixed_code': '',
+                    'changelog': [],
+                    'error': str(e),
+                }
+
+            for m in result['matches']:
+                summary[m] = summary.get(m, 0) + 1
+            all_findings.extend(result['findings'])
+            files_result.append(result)
+
+            if on_file_scanned:
+                on_file_scanned({
+                    'file_path': file_path,
+                    'findings': result['findings'],
+                    'score': result['score'],
+                    'label': result['label'],
+                    'progress': {'scanned': idx, 'total': total_files},
+                })
 
     overall_score, overall_label = scanner.calculate_score(all_findings)
     raw_findings_dict = {
@@ -314,12 +413,11 @@ def scan_github_repository(
         'total_findings': len(all_findings),
     }
 
-    # Analyze findings through QuantumReady's rule engine
     analysis = risk_engine.analyze_findings(raw_findings_dict)
 
     return {
         'repo': f"{owner}/{repo}",
-        'branch': resolved_branch,
+        'branch': final_branch,
         'total_files': total_files,
         'overall_score': overall_score,
         'overall_label': overall_label,

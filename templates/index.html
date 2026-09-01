@@ -1537,14 +1537,18 @@
                 socket.on('scan_complete', (data) => {
                     progressBar.style.width = '100%';
                     fileNameEl.textContent = 'Scan completed!';
-                    statusMsg.textContent = 'Redirecting to results dashboard...';
+                    statusMsg.textContent = 'Loading results dashboard...';
                     setTimeout(() => {
-                        window.location.reload();
-                    }, 1200);
+                        if (data && data.redirect_url) {
+                            window.location.href = data.redirect_url;
+                        } else {
+                            window.location.reload();
+                        }
+                    }, 800);
                 });
 
                 socket.on('scan_error', (data) => {
-                    statusMsg.textContent = 'Error: ' + (data.error || 'Scan failed');
+                    statusMsg.textContent = 'Error: ' + (data.error || data.message || 'Scan failed');
                     progressBar.style.background = 'var(--red)';
                 });
             }

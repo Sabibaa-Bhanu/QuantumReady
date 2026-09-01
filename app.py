@@ -368,6 +368,33 @@ def download_pdf(fname):
     return ('PDF not found', 404)
 
 
+@app.route('/report/<path:report_id>')
+def view_report(report_id):
+    clean_id = secure_filename(report_id)
+    full = os.path.join(tempfile.gettempdir(), clean_id)
+    if not os.path.exists(full):
+        flash('Scan report not found or has expired.')
+        return redirect(url_for('index'))
+    try:
+        with open(full, 'r', encoding='utf-8') as f:
+            report = json.load(f)
+    except Exception as e:
+        flash(f'Failed to open scan report: {str(e)}')
+        return redirect(url_for('index'))
+
+    # Check for matching PDF
+    pdf_filename = None
+    try:
+        for fn in os.listdir(tempfile.gettempdir()):
+            if fn.startswith('quantumready_report_') and fn.endswith('.pdf'):
+                pdf_filename = fn
+                break
+    except Exception:
+        pass
+
+    return render_template('index.html', report=report, report_path=clean_id, pdf_path=pdf_filename)
+
+
 @app.route('/api/scan', methods=['POST'])
 def api_scan():
     """JSON API endpoint for programmatic scanning."""
@@ -565,6 +592,27 @@ def handle_start_github_scan(data):
         features = scanner.extract_features(result['summary'])
         result['ml_prediction'] = predict_quantum_risk(features)
         result['analysis'] = normalize_analysis(result['analysis'])
+
+        report = {
+            'report': result['analysis'],
+            'meta': {'original_filename': f"{result.get('repo', 'GitHub Repository')} ({result.get('branch', 'main')})"},
+            'ml_prediction': result['ml_prediction'],
+        }
+
+        # Save JSON report
+        tmp = tempfile.NamedTemporaryFile(prefix='qr_gh_', suffix='.json', delete=False)
+        tmp.write(json.dumps(report, indent=2).encode('utf-8'))
+        tmp.close()
+        report_id = os.path.basename(tmp.name)
+
+        # Generate PDF report
+        safe_repo_name = result.get('repo', 'github_repo').replace('/', '_')
+        pdf_path = generate_pdf_report(report, safe_repo_name)
+        pdf_filename = os.path.basename(pdf_path) if pdf_path else None
+
+        result['report_id'] = report_id
+        result['pdf_path'] = pdf_filename
+        result['redirect_url'] = f'/report/{report_id}'
 
         emit('scan_complete', result)
     except github_scanner.GitHubRateLimitError as e:
