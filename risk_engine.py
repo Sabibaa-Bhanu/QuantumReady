@@ -148,6 +148,9 @@ def analyze_findings(findings: Dict[str, Any]) -> Dict[str, Any]:
             'findings': line_findings,
             'score': f.get('score', 100),
             'label': f.get('label', 'SAFE'),
+            'original_code': f.get('original_code', ''),
+            'fixed_code': f.get('fixed_code', ''),
+            'changelog': f.get('changelog', []),
             'analysis': {
                 'risk': risk,
                 'reasons': matches,

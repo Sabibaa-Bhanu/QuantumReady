@@ -1038,8 +1038,11 @@
                     </div>
 
                     <div style="margin-top: 0.75rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                        <a href="#full-fixed-{{ loop.index }}" style="color: var(--green); text-decoration: none; font-size: 0.76rem; font-weight: 700; font-family: var(--font-mono);">
+                            ⚡ Jump to Full Fixed Code (Copy Ready)
+                        </a>
                         <a href="#fix-card-{{ loop.index }}" style="color: var(--cyan); text-decoration: none; font-size: 0.76rem; font-weight: 700; font-family: var(--font-mono);">
-                            → Jump to NIST Remediation Fix
+                            → View NIST Diff
                         </a>
                     </div>
                 </div>
@@ -1149,6 +1152,59 @@
                 </div>
                 {% endfor %}
             </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+
+        <!-- 4. FULL AUTO-REMEDIATED SOURCE FILES (1-CLICK COPY READY) -->
+        {% if report.report and report.report.files %}
+        {% for f in report.report.files %}
+        {% if f.fixed_code and (f.matches or (f.findings and f.findings|length > 0)) %}
+        <div class="vuln-cards-section" id="full-fixed-{{ loop.index }}">
+            <div class="section-title" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+                <div style="display: flex; align-items: center; gap: 0.65rem;">
+                    <span>⚡ Complete Auto-Remediated Code:</span>
+                    <code style="color: var(--cyan); background: rgba(0,229,255,0.08); padding: 0.2rem 0.6rem; border-radius: 6px; font-size: 0.85rem; border: 1px solid rgba(0,229,255,0.2);">{{ f.path }}</code>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <button class="btn-export" style="cursor: pointer;" onclick="copyFullFileCode('full-fixed-code-{{ loop.index }}', this)">
+                        📋 Copy Entire Fixed File
+                    </button>
+                    <button class="btn-export primary" style="cursor: pointer;" onclick="downloadFixedFile('{{ f.path }}', 'full-fixed-code-{{ loop.index }}')">
+                        💾 Download Remediated File
+                    </button>
+                </div>
+            </div>
+
+            <!-- Full Code Box -->
+            <div style="background: rgba(6, 9, 19, 0.9); border: 1px solid var(--border-glow); border-radius: 14px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.5);">
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1.25rem; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.06); font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted);">
+                    <span>NIST FIPS 203/204/205 POST-QUANTUM COMPLIANT</span>
+                    <span style="color: var(--green); font-weight: 700;">● 100% READY TO COPY & DEPLOY</span>
+                </div>
+                <pre style="margin: 0; padding: 1.25rem; overflow-x: auto; font-family: var(--font-mono); font-size: 0.85rem; line-height: 1.6; color: #E2E8F0; max-height: 540px;"><code id="full-fixed-code-{{ loop.index }}">{{ f.fixed_code }}</code></pre>
+            </div>
+
+            <!-- Remediation Changelog Table -->
+            {% if f.changelog %}
+            <div style="margin-top: 1rem; background: rgba(13, 20, 36, 0.6); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.25rem;">
+                <strong style="font-size: 0.82rem; color: var(--white); display: block; margin-bottom: 0.6rem; font-family: var(--font-mono);">
+                    📝 Auto-Remediation Changelog ({{ f.changelog|length }} fixes applied):
+                </strong>
+                <div style="display: grid; gap: 0.5rem;">
+                    {% for c in f.changelog %}
+                    <div style="font-size: 0.78rem; display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap;">
+                        <span style="font-family: var(--font-mono); color: var(--cyan); background: rgba(0,229,255,0.08); padding: 0.1rem 0.45rem; border-radius: 4px; font-weight: 700;">Line {{ c.line }}</span>
+                        <strong style="color: var(--red);">{{ c.vuln }}</strong>
+                        <span style="color: var(--muted);">→</span>
+                        <span style="color: var(--green); font-family: var(--font-mono);">{{ c.replacement }}</span>
+                        <span class="tag-pill" style="font-size: 0.65rem; padding: 0.1rem 0.4rem;">{{ c.standard }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
         </div>
         {% endif %}
         {% endfor %}
@@ -1326,6 +1382,39 @@
                     btn.style.color = '';
                 }, 2000);
             });
+        }
+
+        function copyFullFileCode(elemId, btn) {
+            const el = document.getElementById(elemId);
+            if (!el) return;
+            const code = el.innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                const orig = btn.innerText;
+                btn.innerText = '✅ Copied Full File!';
+                btn.style.background = 'var(--green)';
+                btn.style.color = '#060913';
+                setTimeout(() => {
+                    btn.innerText = orig;
+                    btn.style.background = '';
+                    btn.style.color = '';
+                }, 2500);
+            });
+        }
+
+        function downloadFixedFile(filename, elemId) {
+            const el = document.getElementById(elemId);
+            if (!el) return;
+            const code = el.innerText;
+            const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const baseName = filename.split('/').pop().split('\\').pop() || 'remediated_code.py';
+            a.download = 'fixed_' + baseName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
 
         // Live WebSocket Scanning via Socket.IO

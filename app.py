@@ -307,6 +307,9 @@ def scan():
                     'findings': result['findings'],
                     'score': result['score'],
                     'label': result['label'],
+                    'original_code': result.get('original_code', ''),
+                    'fixed_code': result.get('fixed_code', ''),
+                    'changelog': result.get('changelog', []),
                 }],
                 'summary': {k: (1 if k in result['matches'] else 0)
                             for k in scanner.VULNERABILITY_PATTERNS.keys()},

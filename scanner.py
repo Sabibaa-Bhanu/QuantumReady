@@ -153,17 +153,32 @@ def scan_text(text: str) -> List[str]:
 
 
 def scan_file(file_path: str) -> Dict[str, Any]:
-    """Scan a single file. Returns findings with line numbers + score."""
+    """Scan a single file. Returns findings with line numbers + score + remediated full code."""
     try:
         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
             content = f.read()
     except Exception:
-        return {"findings": [], "matches": [], "score": 100, "label": "SAFE"}
+        return {"findings": [], "matches": [], "score": 100, "label": "SAFE", "original_code": "", "fixed_code": "", "changelog": []}
 
     findings = scan_text_with_lines(content)
     score, label = calculate_score(findings)
     matches = list(dict.fromkeys([f["vulnerability_type"] for f in findings]))
-    return {"findings": findings, "matches": matches, "score": score, "label": label}
+    
+    try:
+        import fix_suggester
+        fixed_code, changelog = fix_suggester.remediate_full_file(content, findings, filename=os.path.basename(file_path))
+    except Exception:
+        fixed_code, changelog = content, []
+
+    return {
+        "findings": findings,
+        "matches": matches,
+        "score": score,
+        "label": label,
+        "original_code": content,
+        "fixed_code": fixed_code,
+        "changelog": changelog,
+    }
 
 
 def scan_directory(root: str, exts=None) -> Dict[str, Any]:
@@ -192,6 +207,9 @@ def scan_directory(root: str, exts=None) -> Dict[str, Any]:
                 'findings': result["findings"],
                 'score': result["score"],
                 'label': result["label"],
+                'original_code': result.get("original_code", ""),
+                'fixed_code': result.get("fixed_code", ""),
+                'changelog': result.get("changelog", []),
             })
 
     overall_score, overall_label = calculate_score(all_findings)

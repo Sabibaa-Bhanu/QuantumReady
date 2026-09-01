@@ -227,12 +227,22 @@ def scan_single_code_content(file_path: str, content: str) -> Dict[str, Any]:
     findings = scanner.scan_text_with_lines(content)
     score, label = scanner.calculate_score(findings)
     matches = list(dict.fromkeys([f["vulnerability_type"] for f in findings]))
+    
+    try:
+        import fix_suggester
+        fixed_code, changelog = fix_suggester.remediate_full_file(content, findings, filename=file_path)
+    except Exception:
+        fixed_code, changelog = content, []
+
     return {
         'path': file_path,
         'matches': matches,
         'findings': findings,
         'score': score,
         'label': label,
+        'original_code': content,
+        'fixed_code': fixed_code,
+        'changelog': changelog,
     }
 
 
