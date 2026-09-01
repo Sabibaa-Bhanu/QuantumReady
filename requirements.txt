@@ -6,3 +6,4 @@ numpy>=1.20.0
 waitress>=3.0.0
 flask-socketio>=5.3.6
 simple-websocket>=1.0.0
+gunicorn
