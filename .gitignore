@@ -1,0 +1,37 @@
+# Virtual Environments
+.venv/
+.venv*/
+venv/
+env/
+ENV/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node & Extension build outputs
+node_modules/
+vscode-extension/node_modules/
+vscode-extension/out/
+*.vsix
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Uploads & Temp files
+uploads/*
+!uploads/.gitkeep
+app/uploads/*
+scan_output.html
+
+# OS metadata
+.DS_Store
+Thumbs.db

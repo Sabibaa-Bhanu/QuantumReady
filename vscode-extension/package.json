@@ -1,0 +1,106 @@
+{
+  "name": "quantumready-scanner",
+  "displayName": "QuantumReady — PQC Scanner",
+  "description": "Real-time post-quantum cryptography vulnerability scanner. Detects RSA, ECC, SHA-1, MD5, Diffie-Hellman and other quantum-vulnerable algorithms and shows inline fixes mapped to NIST FIPS 203/204/205.",
+  "version": "0.1.0",
+  "publisher": "quantumready",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "cryptography",
+    "post-quantum",
+    "security",
+    "PQC",
+    "NIST",
+    "RSA",
+    "CRYSTALS-Kyber"
+  ],
+  "icon": "media/icon.png",
+  "activationEvents": [
+    "onLanguage:python",
+    "onLanguage:java",
+    "onLanguage:javascript",
+    "onLanguage:typescript",
+    "onLanguage:javascriptreact",
+    "onLanguage:typescriptreact",
+    "onLanguage:go",
+    "onLanguage:rust",
+    "onLanguage:c",
+    "onLanguage:cpp",
+    "onLanguage:csharp",
+    "onLanguage:ruby",
+    "onLanguage:php",
+    "onLanguage:swift",
+    "onLanguage:kotlin",
+    "onLanguage:scala",
+    "onLanguage:groovy"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "quantumready.scanCurrentFile",
+        "title": "QuantumReady: Scan Current File",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "quantumready.clearDiagnostics",
+        "title": "QuantumReady: Clear Diagnostics"
+      }
+    ],
+    "configuration": {
+      "title": "QuantumReady PQC Scanner",
+      "properties": {
+        "quantumready.backendUrl": {
+          "type": "string",
+          "default": "http://localhost:5000",
+          "description": "Base URL of the QuantumReady Flask backend (do not include a trailing slash). Change this if you run the backend on a different host or port.",
+          "pattern": "^https?://.+"
+        },
+        "quantumready.scanOnType": {
+          "type": "boolean",
+          "default": true,
+          "description": "Scan while typing (debounced). Disable to only scan on file save."
+        },
+        "quantumready.debounceMs": {
+          "type": "number",
+          "default": 1500,
+          "minimum": 250,
+          "maximum": 10000,
+          "description": "Debounce delay in milliseconds when scanOnType is enabled."
+        },
+        "quantumready.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a QuantumReady status bar item with the finding count for the current file."
+        }
+      }
+    },
+    "menus": {
+      "editor/title": [
+        {
+          "command": "quantumready.scanCurrentFile",
+          "group": "navigation",
+          "when": "editorIsOpen"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}

@@ -1,0 +1,8 @@
+!out/extension.js
+!out/**/*.js
+node_modules
+.vscode-test
+src
+tsconfig.json
+.eslintrc.json
+**/*.map

@@ -1,0 +1,3029 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>QuantumReady — Post-Quantum Cryptography Scanner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        :root {
+            --bg: #060913;
+            --surface: rgba(13, 20, 36, 0.75);
+            --surf2: rgba(18, 27, 48, 0.85);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-glow: rgba(0, 229, 255, 0.25);
+            --cyan: #00E5FF;
+            --cyan-glow: rgba(0, 229, 255, 0.3);
+            --indigo: #818CF8;
+            --violet: #7000FF;
+            --green: #00FF9D;
+            --red: #FF2A54;
+            --orange: #FF8800;
+            --yellow: #FFC700;
+            --white: #F1F5F9;
+            --muted: #8A99AD;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--white);
+            font-family: 'Plus Jakarta Sans', 'Syne', sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── AMBIENT LIGHT & GRID BACKGROUND ─────────── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background-image:
+                linear-gradient(rgba(0, 229, 255, .025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 229, 255, .025) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            top: -150px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 1000px;
+            height: 450px;
+            background: radial-gradient(ellipse at center, rgba(0, 229, 255, 0.09) 0%, rgba(112, 0, 255, 0.05) 45%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ── NAVBAR ──────────────────────────────────── */
+        .navbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(3, 7, 18, .88);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+            height: 60px;
+            gap: 1.5rem;
+        }
+
+        .nav-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-shrink: 0;
+        }
+
+        .logo {
+            font-size: 1.2rem;
+            font-weight: 800;
+            letter-spacing: 2px;
+            text-decoration: none;
+            color: var(--white);
+        }
+
+        .logo span {
+            color: var(--cyan);
+        }
+
+        .badge {
+            font-size: .62rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            color: var(--muted);
+            border: 1px solid var(--border);
+            padding: .2rem .55rem;
+            border-radius: 4px;
+            font-family: 'Space Mono', monospace;
+            white-space: nowrap;
+        }
+
+        /* ── NAV LINKS ───────────────────────────────── */
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: .25rem;
+            list-style: none;
+            margin: 0 auto;
+        }
+
+        .nav-links a {
+            display: flex;
+            align-items: center;
+            gap: .35rem;
+            color: var(--muted);
+            text-decoration: none;
+            font-size: .82rem;
+            font-weight: 600;
+            letter-spacing: .4px;
+            padding: .4rem .8rem;
+            border-radius: 8px;
+            transition: color .18s, background .18s;
+            position: relative;
+        }
+
+        .nav-links a:hover {
+            color: var(--white);
+            background: rgba(255, 255, 255, .05);
+        }
+
+        .nav-links a.active {
+            color: var(--cyan);
+            background: rgba(0, 229, 255, .08);
+        }
+
+        .nav-links a.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60%;
+            height: 2px;
+            background: var(--cyan);
+            border-radius: 2px;
+        }
+
+        .nav-icon {
+            font-size: .9rem;
+        }
+
+        /* ── NAV RIGHT ───────────────────────────────── */
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            flex-shrink: 0;
+        }
+
+        .nav-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            font-size: .78rem;
+            font-weight: 700;
+            padding: .38rem .9rem;
+            border-radius: 7px;
+            cursor: pointer;
+            border: 1px solid var(--cyan);
+            color: var(--cyan);
+            background: transparent;
+            text-decoration: none;
+            transition: background .18s, color .18s;
+            font-family: 'Syne', sans-serif;
+            letter-spacing: .3px;
+        }
+
+        .nav-cta:hover {
+            background: var(--cyan);
+            color: var(--bg);
+        }
+
+        /* ── HAMBURGER ───────────────────────────────── */
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 5px;
+            width: 36px;
+            height: 36px;
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .hamburger span {
+            display: block;
+            width: 18px;
+            height: 2px;
+            background: var(--white);
+            border-radius: 2px;
+            transition: transform .25s, opacity .25s;
+        }
+
+        .hamburger.open span:nth-child(1) {
+            transform: translateY(7px) rotate(45deg);
+        }
+
+        .hamburger.open span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .hamburger.open span:nth-child(3) {
+            transform: translateY(-7px) rotate(-45deg);
+        }
+
+        /* ── MOBILE DRAWER ───────────────────────────── */
+        .mobile-menu {
+            display: none;
+            position: fixed;
+            top: 60px;
+            left: 0;
+            right: 0;
+            background: rgba(13, 17, 23, .98);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 1.5rem 1.5rem;
+            z-index: 99;
+            flex-direction: column;
+            gap: .25rem;
+            animation: slideDown .22s ease;
+        }
+
+        .mobile-menu.open {
+            display: flex;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .mobile-menu a {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: .9rem;
+            font-weight: 600;
+            padding: .65rem .8rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            transition: color .15s, background .15s;
+        }
+
+        .mobile-menu a:hover,
+        .mobile-menu a.active {
+            color: var(--cyan);
+            background: rgba(0, 229, 255, .07);
+        }
+
+        .mobile-menu .mob-divider {
+            height: 1px;
+            background: var(--border);
+            margin: .5rem 0;
+        }
+
+        @media(max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .nav-right .nav-cta {
+                display: none;
+            }
+
+            .hamburger {
+                display: flex;
+            }
+        }
+
+        /* ── THREAT TICKER ───────────────────────────── */
+        .ticker {
+            background: rgba(255, 56, 96, .08);
+            border-bottom: 1px solid rgba(255, 56, 96, .25);
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            padding: .4rem 2rem;
+            font-size: .75rem;
+            font-family: 'Space Mono', monospace;
+        }
+
+        .ticker-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--red);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: .5;
+                transform: scale(.75);
+            }
+        }
+
+        main {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ── HERO ────────────────────────────────────── */
+        .hero {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 4rem 2rem 2rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            align-items: center;
+        }
+
+        @media(max-width:768px) {
+            .hero {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .hero h1 {
+            font-size: clamp(2rem, 5vw, 3.2rem);
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 1rem;
+        }
+
+        .hero h1 .hl {
+            color: var(--cyan);
+        }
+
+        .hero p {
+            color: var(--muted);
+            line-height: 1.7;
+            font-size: .95rem;
+            margin-bottom: 1.5rem;
+        }
+
+        /* stats row */
+        .stats {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-num {
+            font-family: 'Space Mono', monospace;
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--cyan);
+        }
+
+        .stat-lbl {
+            font-size: .7rem;
+            color: var(--muted);
+            letter-spacing: 1px;
+        }
+
+        /* ── UPLOAD CARD ─────────────────────────────── */
+        .upload-card {
+            background: var(--surface);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 2.25rem;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .upload-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--cyan), var(--violet), var(--indigo));
+        }
+
+        .upload-zone {
+            border: 2px dashed rgba(0, 229, 255, .2);
+            border-radius: 14px;
+            padding: 2.25rem 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all .25s ease;
+            margin-bottom: 1.25rem;
+            background: rgba(6, 9, 19, 0.4);
+        }
+
+        .upload-zone:hover,
+        .upload-zone.dragover {
+            border-color: var(--cyan);
+            background: rgba(0, 229, 255, .06);
+            box-shadow: 0 0 20px rgba(0, 229, 255, .15);
+        }
+
+        .upload-zone.has-file {
+            border-color: var(--green);
+            background: rgba(0, 255, 157, .05);
+        }
+
+        .upload-icon {
+            font-size: 2.75rem;
+            margin-bottom: .5rem;
+        }
+
+        .upload-zone h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--white);
+            margin-bottom: .25rem;
+        }
+
+        .upload-zone p {
+            font-size: .8rem;
+            color: var(--muted);
+        }
+
+        .file-name {
+            font-family: 'Space Mono', monospace;
+            font-size: .78rem;
+            color: var(--green);
+            margin-top: .6rem;
+            font-weight: 700;
+        }
+
+        input[type=file] {
+            display: none;
+        }
+
+        /* ── BUTTONS ─────────────────────────────────── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .5rem;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: .86rem;
+            font-weight: 700;
+            letter-spacing: .3px;
+            padding: .65rem 1.35rem;
+            border-radius: 10px;
+            cursor: pointer;
+            border: none;
+            text-decoration: none;
+            transition: all .22s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--cyan) 0%, #00B8D9 100%);
+            color: #030712;
+            box-shadow: 0 4px 16px rgba(0, 229, 255, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 229, 255, 0.45);
+        }
+
+        .btn-secondary {
+            background: rgba(0, 229, 255, .06);
+            color: var(--cyan);
+            border: 1px solid rgba(0, 229, 255, .3);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(0, 229, 255, .15);
+            border-color: var(--cyan);
+            transform: translateY(-1px);
+        }
+
+        .btn-ghost {
+            background: rgba(255, 255, 255, .04);
+            color: var(--muted);
+            border: 1px solid var(--border);
+        }
+
+        .btn-ghost:hover {
+            border-color: rgba(255, 255, 255, .25);
+            color: var(--white);
+            background: rgba(255, 255, 255, .08);
+        }
+
+        .btn:disabled {
+            opacity: .45;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: .75rem;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+        }
+
+        /* ── SCANNING ANIMATION ──────────────────────── */
+        .scanning-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            background: rgba(3, 7, 18, .92);
+            backdrop-filter: blur(8px);
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .scanning-overlay.active {
+            display: flex;
+        }
+
+        .scan-line-wrap {
+            width: 280px;
+            height: 320px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            background: var(--surface);
+        }
+
+        .scan-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+            animation: scandown 2s linear infinite;
+        }
+
+        @keyframes scandown {
+            0% {
+                top: 0;
+            }
+
+            100% {
+                top: 100%;
+            }
+        }
+
+        .scan-text {
+            font-family: 'Space Mono', monospace;
+            font-size: .75rem;
+            color: var(--cyan);
+            text-align: center;
+            min-height: 1.2rem;
+        }
+
+        /* ── RESULTS SECTION ─────────────────────────── */
+        .results {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem 4rem;
+        }
+
+        /* score banner */
+        .score-banner {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 2rem;
+            align-items: center;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem 2rem;
+            margin-bottom: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .score-banner::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+        }
+
+        .score-banner.risk-CRITICAL::before {
+            background: var(--red);
+        }
+
+        .score-banner.risk-HIGH::before {
+            background: var(--orange);
+        }
+
+        .score-banner.risk-MEDIUM::before {
+            background: var(--yellow);
+        }
+
+        .score-banner.risk-LOW::before {
+            background: var(--green);
+        }
+
+        /* circular gauge */
+        .gauge {
+            position: relative;
+            width: 90px;
+            height: 90px;
+            flex-shrink: 0;
+        }
+
+        .gauge svg {
+            transform: rotate(-90deg);
+        }
+
+        .gauge-track {
+            fill: none;
+            stroke: var(--border);
+            stroke-width: 6;
+        }
+
+        .gauge-fill {
+            fill: none;
+            stroke-width: 6;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 1s ease;
+        }
+
+        .gauge-num {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Space Mono', monospace;
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .score-info h2 {
+            font-size: 1.4rem;
+            font-weight: 800;
+        }
+
+        .score-info p {
+            color: var(--muted);
+            font-size: .85rem;
+            margin-top: .3rem;
+        }
+
+        .risk-badge {
+            display: inline-block;
+            font-size: .7rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            padding: .3rem .7rem;
+            border-radius: 6px;
+            font-family: 'Space Mono', monospace;
+        }
+
+        .risk-CRITICAL {
+            background: rgba(255, 56, 96, .15);
+            color: var(--red);
+            border: 1px solid rgba(255, 56, 96, .3);
+        }
+
+        .risk-HIGH {
+            background: rgba(255, 152, 0, .15);
+            color: var(--orange);
+            border: 1px solid rgba(255, 152, 0, .3);
+        }
+
+        .risk-MEDIUM {
+            background: rgba(255, 214, 0, .15);
+            color: var(--yellow);
+            border: 1px solid rgba(255, 214, 0, .3);
+        }
+
+        .risk-LOW {
+            background: rgba(0, 255, 157, .15);
+            color: var(--green);
+            border: 1px solid rgba(0, 255, 157, .3);
+        }
+
+        .risk-safe {
+            background: rgba(0, 255, 157, .15);
+            color: var(--green);
+            border: 1px solid rgba(0, 255, 157, .3);
+        }
+
+        .score-actions {
+            display: flex;
+            flex-direction: column;
+            gap: .5rem;
+        }
+
+        /* ml prediction */
+        .ml-box {
+            background: rgba(129, 140, 248, .08);
+            border: 1px solid rgba(129, 140, 248, .2);
+            border-radius: 10px;
+            padding: .8rem 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            margin-bottom: 1.5rem;
+            font-size: .85rem;
+        }
+
+        .ml-icon {
+            font-size: 1.3rem;
+        }
+
+        .ml-label {
+            color: var(--muted);
+        }
+
+        .ml-value {
+            font-weight: 700;
+            margin-left: .3rem;
+        }
+
+        .ml-conf {
+            color: var(--muted);
+            font-size: .75rem;
+            margin-left: .3rem;
+        }
+
+        /* stat cards row */
+        .stat-cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        @media(max-width:640px) {
+            .stat-cards {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .stat-card .num {
+            font-family: 'Space Mono', monospace;
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .stat-card .lbl {
+            font-size: .72rem;
+            color: var(--muted);
+            margin-top: .2rem;
+        }
+
+        .num-critical {
+            color: var(--red);
+        }
+
+        .num-high {
+            color: var(--orange);
+        }
+
+        .num-medium {
+            color: var(--yellow);
+        }
+
+        .num-total {
+            color: var(--cyan);
+        }
+
+        /* ── FILE TABLE ──────────────────────────────── */
+        .section-title {
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: var(--muted);
+            text-transform: uppercase;
+            margin-bottom: .75rem;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+        }
+
+        .section-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .files-table-wrap {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 1.5rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .85rem;
+        }
+
+        th {
+            background: var(--surf2);
+            color: var(--muted);
+            font-size: .7rem;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            padding: .65rem 1rem;
+            text-align: left;
+            font-weight: 700;
+        }
+
+        td {
+            padding: .65rem 1rem;
+            border-top: 1px solid var(--border);
+            vertical-align: top;
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, .02);
+        }
+
+        .mono {
+            font-family: 'Space Mono', monospace;
+            font-size: .78rem;
+        }
+
+        .score-pill {
+            display: inline-block;
+            font-family: 'Space Mono', monospace;
+            font-size: .75rem;
+            padding: .15rem .5rem;
+            border-radius: 4px;
+            font-weight: 700;
+        }
+
+        /* ── VULNERABILITY CARDS ─────────────────────── */
+        .vuln-list {
+            display: flex;
+            flex-direction: column;
+            gap: .75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .vuln-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left-width: 3px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .vuln-card.crit {
+            border-left-color: var(--red);
+        }
+
+        .vuln-card.high {
+            border-left-color: var(--orange);
+        }
+
+        .vuln-card.med {
+            border-left-color: var(--yellow);
+        }
+
+        .vuln-card.low {
+            border-left-color: var(--green);
+        }
+
+        .vuln-header {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            padding: .75rem 1rem;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .vuln-header:hover {
+            background: rgba(255, 255, 255, .02);
+        }
+
+        .vuln-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .crit .vuln-dot {
+            background: var(--red);
+            box-shadow: 0 0 6px var(--red);
+        }
+
+        .high .vuln-dot {
+            background: var(--orange);
+        }
+
+        .med .vuln-dot {
+            background: var(--yellow);
+        }
+
+        .low .vuln-dot {
+            background: var(--green);
+        }
+
+        .vuln-name {
+            font-weight: 700;
+            font-size: .9rem;
+        }
+
+        .vuln-loc {
+            font-family: 'Space Mono', monospace;
+            font-size: .72rem;
+            color: var(--muted);
+            margin-left: auto;
+        }
+
+        .vuln-chevron {
+            color: var(--muted);
+            transition: transform .2s;
+        }
+
+        .vuln-card.open .vuln-chevron {
+            transform: rotate(180deg);
+        }
+
+        .vuln-body {
+            display: none;
+            padding: 0 1rem 1rem;
+        }
+
+        .vuln-card.open .vuln-body {
+            display: block;
+        }
+
+        .vuln-desc {
+            font-size: .83rem;
+            color: var(--muted);
+            margin-bottom: .75rem;
+        }
+
+        /* code diff */
+        .diff-wrap {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: .75rem;
+        }
+
+        @media(max-width:640px) {
+            .diff-wrap {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .diff-block {
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .diff-label {
+            font-family: 'Space Mono', monospace;
+            font-size: .7rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            padding: .35rem .75rem;
+        }
+
+        .diff-label.bad {
+            background: rgba(255, 56, 96, .15);
+            color: var(--red);
+        }
+
+        .diff-label.good {
+            background: rgba(0, 255, 157, .15);
+            color: var(--green);
+        }
+
+        .diff-code {
+            background: var(--surf2);
+            font-family: 'Space Mono', monospace;
+            font-size: .75rem;
+            padding: .75rem;
+            white-space: pre-wrap;
+            line-height: 1.6;
+            border-top: 1px solid var(--border);
+            position: relative;
+        }
+
+        .diff-block.bad .diff-code {
+            border-top-color: rgba(255, 56, 96, .2);
+        }
+
+        .diff-block.good .diff-code {
+            border-top-color: rgba(0, 255, 157, .2);
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: .4rem;
+            right: .4rem;
+            font-size: .65rem;
+            padding: .2rem .45rem;
+            background: var(--border);
+            color: var(--muted);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Space Mono', monospace;
+        }
+
+        .copy-btn:hover {
+            background: var(--surf2);
+            color: var(--white);
+        }
+
+        .nist-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            font-size: .7rem;
+            font-family: 'Space Mono', monospace;
+            background: rgba(129, 140, 248, .1);
+            color: var(--indigo);
+            border: 1px solid rgba(129, 140, 248, .25);
+            padding: .2rem .6rem;
+            border-radius: 4px;
+            margin-top: .75rem;
+        }
+
+        /* line number findings */
+        .line-findings {
+            margin-top: .75rem;
+        }
+
+        .line-finding {
+            display: flex;
+            align-items: flex-start;
+            gap: .5rem;
+            font-size: .78rem;
+            margin-bottom: .35rem;
+        }
+
+        .ln {
+            font-family: 'Space Mono', monospace;
+            color: var(--muted);
+            min-width: 60px;
+        }
+
+        .lc {
+            font-family: 'Space Mono', monospace;
+            color: var(--white);
+            background: var(--surf2);
+            padding: .1rem .4rem;
+            border-radius: 3px;
+            word-break: break-all;
+        }
+
+        /* ── FLASH MESSAGES ──────────────────────────── */
+        .flash {
+            background: rgba(255, 56, 96, .12);
+            border: 1px solid rgba(255, 56, 96, .3);
+            color: var(--red);
+            padding: .75rem 1.2rem;
+            border-radius: 8px;
+            margin: 1rem 2rem;
+            font-size: .85rem;
+        }
+
+        /* ── FOOTER ──────────────────────────────────── */
+        footer {
+            border-top: 1px solid var(--border);
+            text-align: center;
+            padding: 1.5rem;
+            font-size: .75rem;
+            color: var(--muted);
+            font-family: 'Space Mono', monospace;
+        }
+
+        /* ── GAUGE COLOR CLASSES ─────────────────────── */
+        .gauge-CRITICAL {
+            color: var(--red);
+        }
+
+        .gauge-HIGH {
+            color: var(--orange);
+        }
+
+        .gauge-MEDIUM {
+            color: var(--yellow);
+        }
+
+        .gauge-LOW {
+            color: var(--green);
+        }
+
+        /* ── GAUGE STROKE CLASSES (SVG circle) ───────── */
+        .gauge-stroke-CRITICAL {
+            stroke: var(--red);
+        }
+
+        .gauge-stroke-HIGH {
+            stroke: var(--orange);
+        }
+
+        .gauge-stroke-MEDIUM {
+            stroke: var(--yellow);
+        }
+
+        .gauge-stroke-LOW {
+            stroke: var(--green);
+        }
+
+        /* ── ML VALUE COLOR CLASSES ──────────────────── */
+        .ml-low {
+            color: var(--green);
+        }
+
+        .ml-mid {
+            color: var(--yellow);
+        }
+
+        .ml-high {
+            color: var(--red);
+        }
+
+        /* ── GITHUB SCANNER TABS & CONTROLS ───────────── */
+        .scanner-mode-tabs {
+            display: flex;
+            gap: .5rem;
+            margin-bottom: 1.25rem;
+            background: var(--surf2);
+            padding: .35rem;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: .6rem 1rem;
+            border: none;
+            background: transparent;
+            color: var(--muted);
+            font-family: 'Syne', sans-serif;
+            font-size: .82rem;
+            font-weight: 700;
+            cursor: pointer;
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: .45rem;
+            transition: all .2s ease;
+        }
+
+        .tab-btn:hover {
+            color: var(--white);
+        }
+
+        .tab-btn.active {
+            background: var(--surface);
+            color: var(--cyan);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .3);
+            border: 1px solid rgba(0, 229, 255, .25);
+        }
+
+        .scan-panel {
+            display: none;
+        }
+
+        .scan-panel.active {
+            display: block;
+        }
+
+        .github-form-group {
+            display: flex;
+            flex-direction: column;
+            gap: .5rem;
+            margin-bottom: 1.1rem;
+        }
+
+        .field-label {
+            font-size: .75rem;
+            font-weight: 700;
+            color: var(--muted);
+            letter-spacing: .5px;
+            font-family: 'Space Mono', monospace;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .text-input {
+            width: 100%;
+            background: var(--surf2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: .75rem 1rem;
+            font-size: .88rem;
+            font-family: 'Space Mono', monospace;
+            color: var(--white);
+            outline: none;
+            transition: border-color .2s, box-shadow .2s;
+        }
+
+        .text-input:focus {
+            border-color: var(--cyan);
+            box-shadow: 0 0 0 2px rgba(0, 229, 255, .15);
+        }
+
+        .text-input::placeholder {
+            color: rgba(125, 133, 144, .7);
+        }
+
+        .sample-repos {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .4rem;
+            align-items: center;
+            margin-top: .3rem;
+        }
+
+        .sample-tag {
+            font-size: .68rem;
+            font-family: 'Space Mono', monospace;
+            background: rgba(129, 140, 248, .1);
+            color: var(--indigo);
+            border: 1px solid rgba(129, 140, 248, .2);
+            padding: .2rem .5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all .15s ease;
+        }
+
+        .sample-tag:hover {
+            background: rgba(0, 229, 255, .15);
+            color: var(--cyan);
+            border-color: var(--cyan);
+        }
+
+        /* ── TOAST NOTIFICATIONS ─────────────────────── */
+        .toast-container {
+            position: fixed;
+            top: 75px;
+            right: 20px;
+            z-index: 350;
+            display: flex;
+            flex-direction: column;
+            gap: .6rem;
+            max-width: 440px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem 1.25rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,.6);
+            display: flex;
+            align-items: flex-start;
+            gap: .75rem;
+            animation: slideInToast .25s ease-out;
+            font-size: .84rem;
+            line-height: 1.5;
+            pointer-events: auto;
+        }
+
+        .toast.error {
+            border-color: rgba(255, 56, 96, .6);
+            background: rgba(26, 10, 15, .95);
+            color: #FFB4C0;
+        }
+
+        .toast.warning {
+            border-color: rgba(255, 152, 0, .6);
+            background: rgba(30, 18, 5, .95);
+            color: #FFE0B2;
+        }
+
+        .toast.info {
+            border-color: rgba(0, 229, 255, .6);
+            background: rgba(5, 20, 30, .95);
+            color: #B2F5EA;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: inherit;
+            opacity: .6;
+            cursor: pointer;
+            font-size: 1rem;
+            line-height: 1;
+            margin-left: auto;
+            padding: 0 .2rem;
+        }
+
+        .toast-close:hover {
+            opacity: 1;
+        }
+
+        @keyframes slideInToast {
+            from { opacity: 0; transform: translateX(30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* ── LIVE STREAMING RESULTS CARD ─────────────── */
+        .live-stream-card {
+            display: none;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 2rem 2rem 3rem;
+            position: relative;
+            overflow: hidden;
+            border-left: 4px solid var(--cyan);
+        }
+
+        .live-stream-card.active {
+            display: block;
+            animation: fadeInStream .3s ease-out;
+        }
+
+        @keyframes fadeInStream {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .live-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .live-title {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            font-size: 1.25rem;
+            font-weight: 800;
+        }
+
+        .pulse-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--cyan);
+            box-shadow: 0 0 10px var(--cyan);
+            animation: pulseDot 1.2s infinite;
+        }
+
+        @keyframes pulseDot {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.4); opacity: .4; }
+        }
+
+        .live-status-pill {
+            font-family: 'Space Mono', monospace;
+            font-size: .72rem;
+            padding: .25rem .65rem;
+            border-radius: 4px;
+            background: var(--surf2);
+            border: 1px solid var(--border);
+            color: var(--cyan);
+        }
+
+        /* Progress Bar */
+        .live-progress-container {
+            margin-bottom: 1.5rem;
+            background: var(--surf2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem 1.25rem;
+        }
+        }
+
+        .live-progress-bar-wrap {
+            height: 10px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 5px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .live-progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--cyan), var(--indigo), var(--green));
+            border-radius: 5px;
+            transition: width .25s ease;
+            box-shadow: 0 0 12px rgba(0, 229, 255, 0.4);
+        }
+
+        .live-file-item {
+            background: rgba(18, 27, 48, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 10px;
+            padding: .9rem 1.2rem;
+            margin-bottom: .6rem;
+            animation: fileScanIn .3s ease-out;
+        }
+
+        .live-file-item.risk-CRITICAL { border-left: 3px solid var(--red); }
+        .live-file-item.risk-HIGH { border-left: 3px solid var(--orange); }
+        .live-file-item.risk-MODERATE { border-left: 3px solid var(--yellow); }
+        .live-file-item.risk-SAFE { border-left: 3px solid var(--green); }
+
+        /* State Cards */
+        .state-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2.5rem 2rem;
+            text-align: center;
+            margin: 1.5rem 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+        }
+
+        .state-card.success {
+            border-color: rgba(0, 255, 157, 0.35);
+            background: rgba(0, 255, 157, 0.04);
+            box-shadow: 0 0 30px rgba(0, 255, 157, 0.08);
+        }
+
+        .state-card.warning {
+            border-color: rgba(255, 136, 0, 0.35);
+            background: rgba(255, 136, 0, 0.04);
+            box-shadow: 0 0 30px rgba(255, 136, 0, 0.08);
+        }
+
+        .state-card.error {
+            border-color: rgba(255, 56, 96, .4);
+            background: rgba(255, 56, 96, .03);
+        }
+
+        .state-icon {
+            font-size: 3rem;
+            line-height: 1;
+        }
+
+        .state-title {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--white);
+        }
+
+        .state-desc {
+            font-size: .88rem;
+            color: var(--muted);
+            max-width: 540px;
+            line-height: 1.6;
+        }
+
+        /* Pulse Skeleton */
+        .skeleton-loader {
+            display: flex;
+            flex-direction: column;
+            gap: .75rem;
+            width: 100%;
+        }
+
+        .skeleton-box {
+            height: 52px;
+            background: linear-gradient(90deg, var(--surf2) 25%, var(--border) 50%, var(--surf2) 75%);
+            background-size: 200% 100%;
+            animation: skeletonShimmer 1.5s infinite;
+            border-radius: 8px;
+        }
+
+        @keyframes skeletonShimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <!-- Left: Logo + Badge -->
+        <div class="nav-left">
+            <a href="/" class="logo">Quantum<span>Ready</span></a>
+            <div class="badge">NIST FIPS 203/204/205</div>
+        </div>
+
+        <!-- Center: Nav links -->
+        <ul class="nav-links" id="navLinks">
+            <li><a href="/" class="nav-link {% if not report %}active{% endif %}" id="navScanner">
+                    <span class="nav-icon">🔍</span> Scanner
+                </a></li>
+            <li><a href="#how-it-works" class="nav-link" id="navHowItWorks">
+                    <span class="nav-icon">⚙️</span> How It Works
+                </a></li>
+            <li><a href="#algorithms" class="nav-link" id="navAlgorithms">
+                    <span class="nav-icon">🔐</span> Algorithms
+                </a></li>
+            <li><a href="#about" class="nav-link" id="navAbout">
+                    <span class="nav-icon">ℹ️</span> About
+                </a></li>
+        </ul>
+
+        <!-- Right: CTA + Hamburger -->
+        <div class="nav-right">
+            <a href="/" class="nav-cta">🚀 Scan Now</a>
+            <button class="hamburger" id="hamburgerBtn" aria-label="Toggle menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Mobile Drawer -->
+    <div class="mobile-menu" id="mobileMenu">
+        <a href="/" class="{% if not report %}active{% endif %}">🔍 Scanner</a>
+        <a href="#how-it-works">        {% if report %}
+        <!-- ══════════════════════ RESULTS VIEW ══════════════════════ -->
+        <div class="results">
+
+            {% set rl = report.report.risk_level %}
+            {% set rs = report.report.risk_score %}
+            {% set counts = report.report.counts if report.report.counts else {} %}
+            {% set grade = 'A' if rs >= 80 else 'B' if rs >= 60 else 'C' if rs >= 40 else 'F' %}
+
+            <!-- Top Scan Ribbon -->
+            <div class="scan-ribbon">
+                <div class="scan-ribbon-left">
+                    <span class="scan-ribbon-tag">⚛️ QUANTUM READY SCANNER v2.0</span>
+                    <span style="color:var(--muted)">Target:</span>
+                    <strong style="color:var(--white);font-family:'Space Mono',monospace;">{{ report.meta.original_filename or 'Source Code' }}</strong>
+                </div>
+                <div style="display:flex;align-items:center;gap:.75rem;">
+                    <a class="btn btn-secondary" href="/download/{{ report_path }}" style="padding:.35rem .75rem;font-size:.72rem;">📥 JSON</a>
+                    {% if pdf_path %}
+                    <a class="btn btn-secondary" href="/download-pdf/{{ pdf_path }}" style="padding:.35rem .75rem;font-size:.72rem;">📄 PDF Report</a>
+                    {% endif %}
+                    <a class="btn btn-ghost" href="/" style="padding:.35rem .75rem;font-size:.72rem;">↩ Rescan</a>
+                </div>
+            </div>
+
+            <!-- 1. HERO RISK SUMMARY (TOP PRIORITY 3-SECOND JUDGE OVERVIEW) -->
+            <div class="hero-risk-card risk-{{ rl }}">
+                <div class="hero-risk-grid">
+                    <!-- Grade Badge -->
+                    <div class="grade-badge-huge grade-{{ grade }}">
+                        {{ grade }}
+                        <span class="grade-sub">GRADE</span>
+                    </div>
+
+                    <!-- Risk Center Info -->
+                    <div class="hero-risk-center">
+                        <h2>Quantum Threat Assessment</h2>
+                        <div class="hero-risk-meta">
+                            <span class="risk-badge risk-{{ rl }}">{{ rl }} RISK</span>
+                            <span style="font-size:.8rem;color:var(--muted)">Score: <strong style="color:var(--white)">{{ rs }}/100</strong></span>
+                            {% if report.ml_prediction and report.ml_prediction.available %}
+                            <span style="font-size:.76rem;color:var(--cyan);background:rgba(0,229,255,0.08);padding:.2rem .5rem;border-radius:4px;border:1px solid rgba(0,229,255,0.2);">
+                                🤖 ML Predicted: {{ report.ml_prediction.level }} ({{ (report.ml_prediction.probability * 100)|round|int }}% conf)
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div class="hero-verdict-box">
+                            {% if rl == 'CRITICAL' %}
+                            🚨 <strong>CRITICAL QUANTUM THREAT:</strong> Shor's Algorithm breaks RSA/ECC public key cryptography in this codebase in polynomial time. Immediate migration to NIST FIPS 203 (ML-KEM / Kyber) and FIPS 204 (ML-DSA / Dilithium) is required before 2030.
+                            {% elif rl == 'HIGH' %}
+                            ⚠️ <strong>HIGH INTEGRITY RISK:</strong> Legacy collision-vulnerable hash functions (MD5/SHA-1) or deprecated TLS versions detected. Upgrade to SHA-3 (NIST FIPS 202) and TLS 1.3 (RFC 8446).
+                            {% elif rl == 'MODERATE' or rl == 'MEDIUM' %}
+                            ⚡ <strong>MEDIUM RISK:</strong> Weak cryptographic key generation or parameter configurations detected. Verify key sizes and transition to post-quantum algorithms.
+                            {% else %}
+                            ✅ <strong>QUANTUM READY (GRADE A):</strong> Zero critical quantum vulnerabilities detected! Your codebase complies with NIST post-quantum cryptography standards.
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Visual Radial Gauge -->
+                    <div class="gauge-wrap">
+                        <div class="gauge-svg-box">
+                            <svg width="100" height="100" viewBox="0 0 90 90">
+                                <circle class="gauge-track-svg" cx="45" cy="45" r="38" />
+                                <circle class="gauge-fill-svg gauge-stroke-{{ rl }}" cx="45" cy="45" r="38"
+                                    stroke-dasharray="238.76" stroke-dashoffset="{{ 238.76 - (rs / 100 * 238.76) }}" />
+                            </svg>
+                            <div class="gauge-score-number gauge-{{ rl }}">
+                                {{ rs }}
+                                <span>/ 100</span>
+                            </div>
+                        </div>
+                        <div style="font-size:.7rem;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;">
+                            QUANTUM SCORE
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Severity Breakdown 4 Cards Grid -->
+            <div class="severity-matrix-grid">
+                <div class="sev-matrix-card crit">
+                    <div class="sev-matrix-header">
+                        <span class="sev-matrix-title">💀 Critical Threat</span>
+                        <span style="font-size:.7rem;color:var(--red);font-weight:700;">SHOR'S</span>
+                    </div>
+                    <div class="sev-matrix-num" style="color:var(--red);">{{ counts.CRITICAL if counts.CRITICAL else 0 }}</div>
+                    <div class="sev-matrix-desc">RSA, ECC, Diffie-Hellman</div>
+                </div>
+
+                <div class="sev-matrix-card high">
+                    <div class="sev-matrix-header">
+                        <span class="sev-matrix-title">🔴 High Risk</span>
+                        <span style="font-size:.7rem;color:var(--orange);font-weight:700;">COLLISION</span>
+                    </div>
+                    <div class="sev-matrix-num" style="color:var(--orange);">{{ counts.HIGH if counts.HIGH else 0 }}</div>
+                    <div class="sev-matrix-desc">MD5, SHA-1, Weak TLS</div>
+                </div>
+
+                <div class="sev-matrix-card med">
+                    <div class="sev-matrix-header">
+                        <span class="sev-matrix-title">⚠️ Medium Risk</span>
+                        <span style="font-size:.7rem;color:var(--yellow);font-weight:700;">KEY GEN</span>
+                    </div>
+                    <div class="sev-matrix-num" style="color:var(--yellow);">{{ counts.MEDIUM if counts.MEDIUM else 0 }}</div>
+                    <div class="sev-matrix-desc">Weak Key Parameters</div>
+                </div>
+
+                <div class="sev-matrix-card total">
+                    <div class="sev-matrix-header">
+                        <span class="sev-matrix-title">📊 Total Findings</span>
+                        <span style="font-size:.7rem;color:var(--cyan);font-weight:700;">SITES</span>
+                    </div>
+                    <div class="sev-matrix-num" style="color:var(--cyan);">{{ report.report.total_findings if report.report.total_findings is defined else (report.report.vulnerabilities|length if report.report.vulnerabilities is defined else 0) }}</div>
+                    <div class="sev-matrix-desc">Total Vulnerable Instances</div>
+                </div>
+            </div>
+
+            <!-- 2. MIGRATION PRIORITY SECTION (SORTED HIGHEST -> LOWEST RISK) -->
+            {% set vulnerable_files = [] %}
+            {% if report.report.files %}
+                {% for f in report.report.files %}
+                    {% if f.matches or (f.findings and f.findings|length > 0) %}
+                        {% set _ = vulnerable_files.append(f) %}
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+
+            {% if vulnerable_files %}
+            <div class="migration-section-wrap">
+                <div class="migration-header-row">
+                    <div>
+                        <h3 style="font-size:1.15rem;font-weight:800;color:var(--white);">🚀 Migration Priority — Action Items Ranking</h3>
+                        <p style="font-size:.78rem;color:var(--muted);margin-top:.2rem;">Ranked by relative cryptographic risk penalty. Remediate top items first.</p>
+                    </div>
+                    <span style="font-size:.75rem;font-family:'Space Mono',monospace;color:var(--cyan);background:rgba(0,229,255,0.08);padding:.25rem .6rem;border-radius:4px;border:1px solid rgba(0,229,255,0.2);">
+                        {{ vulnerable_files|length }} File{{ 's' if vulnerable_files|length != 1 else '' }} Require PQC Migration
+                    </span>
+                </div>
+
+                <div>
+                    {% for f in vulnerable_files | sort(attribute='score') %}
+                    {% set f_risk = f.analysis.risk if f.analysis else 'HIGH' %}
+                    {% set risk_color = '#FF2A54' if f_risk == 'CRITICAL' else '#FF8800' if f_risk == 'HIGH' else '#FFC700' if f_risk == 'MEDIUM' else '#00FF9D' %}
+                    {% set pen_width = 100 - f.score if f.score is defined else 50 %}
+                    <div class="migration-item-card" style="border-left: 4px solid {{ risk_color }};">
+                        <div class="migration-card-top">
+                            <div style="display:flex;align-items:center;gap:.75rem;flex:1;flex-wrap:wrap;">
+                                <span class="{% if loop.index == 1 %}migration-badge-p1{% else %}migration-badge-p2{% endif %}">
+                                    #{{ loop.index }} PRIORITY {{ loop.index }}
+                                </span>
+                                <span style="font-family:'Space Mono',monospace;font-size:.85rem;font-weight:700;color:var(--white);">📄 {{ f.path }}</span>
+                                <div style="display:flex;gap:.35rem;align-items:center;flex-wrap:wrap;">
+                                    {% for m in f.matches %}
+                                    <span style="font-size:.68rem;padding:.15rem .45rem;border-radius:4px;background:rgba(255,255,255,0.06);color:{{ risk_color }};border:1px solid {{ risk_color }}44;font-family:'Space Mono',monospace;font-weight:700;">{{ m }}</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:.6rem;flex-shrink:0;">
+                                <span class="score-pill" style="font-size:.78rem;">Score: {{ f.score }}/100</span>
+                                <span class="risk-badge risk-{{ f_risk }}">{{ f_risk }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Horizontal Risk Bar -->
+                        <div style="margin-top:.5rem;">
+                            <div style="display:flex;justify-content:space-between;font-size:.72rem;margin-bottom:.3rem;">
+                                <span style="color:var(--muted)">Cryptographic Risk Exposure</span>
+                                <span style="font-family:'Space Mono',monospace;font-weight:700;color:{{ risk_color }}">{{ pen_width|int }}% Risk</span>
+                            </div>
+                            <div class="migration-bar-track">
+                                <div class="migration-bar-fill-dynamic" style="width: {{ pen_width }}%; background: linear-gradient(90deg, {{ risk_color }}, var(--cyan));"></div>
+                            </div>
+                        </div>
+
+                        <div style="margin-top:.75rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;">
+                            <a href="#fix-card-{{ lo                    {% set risk_class = 'crit' if rec.vulnerability in ['RSA','ECC','DiffieHellman','WeakRSAKeySize'] else
+                    'high' if rec.vulnerability in ['MD5','SHA1','WeakTLS'] else 'med' %}
+                    <div class="vuln-card-pro {{ risk_class }} open" id="fix-card-{{ loop.index }}">
+                        <div class="vuln-card-head" onclick="this.parentElement.classList.toggle('open')">
+                            <div style="display:flex;align-items:center;gap:.75rem;">
+                                <span class="risk-badge risk-{{ 'CRITICAL' if risk_class=='crit' else 'HIGH' if risk_class=='high' else 'MEDIUM' }}">
+                                    {{ 'CRITICAL' if risk_class=='crit' else 'HIGH' if risk_class=='high' else 'MEDIUM' }}
+                                </span>
+                                <strong style="font-size:.95rem;color:var(--white);">{{ rec.vulnerability }} Vulnerability</strong>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:.75rem;">
+                                <span class="nist-standard-chip">{{ rec.nist_standard }}</span>
+                                <span class="vuln-chevron" style="color:var(--muted);font-size:.8rem;">▾</span>
+                            </div>
+                        </div>
+
+                        <div class="vuln-card-body">
+                            <div style="font-size:.85rem;color:#94A3B8;margin-bottom:.5rem;line-height:1.6;">
+                                <strong>Threat Timeline:</strong> {{ rec.timeline }}
+                            </div>
+                            <div style="font-size:.85rem;color:#CBD5E1;margin-bottom:1rem;line-height:1.6;">
+                                <strong>Recommendation:</strong> {{ rec.recommendation }}
+                            </div>
+
+                            <!-- Side-by-Side Diff Block -->
+                            <div class="diff-grid-split">
+                                <div class="diff-panel-box">
+                                    <div class="diff-panel-tag bad">❌ VULNERABLE CODE</div>
+                                    <div class="diff-code-box">
+                                        {{ rec.code_before }}
+                                        <button class="copy-btn-pro" onclick="copyCode(this)">Copy</button>
+                                    </div>
+                                </div>
+                                <div class="diff-panel-box">
+                                    <div class="diff-panel-tag good">✅ QUANTUM-SAFE CODE (NIST FIPS)</div>
+                                    <div class="diff-code-box">
+                                        {{ rec.code_after }}
+                                        <button class="copy-btn-pro" onclick="copyCode(this)">Copy</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Line-level file findings -->
+            {% for f in report.report.files %}
+            {% if f.findings %}
+            <div class="vuln-cards-section">
+                <div class="section-title">🔍 Line-by-Line Findings: {{ f.path }}</div>
+                <div>
+                    {% for finding in f.findings %}
+                    {% set risk_class = 'crit' if finding.risk=='CRITICAL' else 'high' if finding.risk=='HIGH' else 'med' if finding.risk=='MEDIUM' else 'low' %}
+                    <div class="vuln-card-pro {{ risk_class }} open">
+                        <div class="vuln-card-head" onclick="this.parentElement.classList.toggle('open')">
+                            <div style="display:flex;align-items:center;gap:.75rem;">
+                                <span class="risk-badge risk-{{ finding.risk }}">{{ finding.risk }}</span>
+                                <strong style="font-size:.9rem;color:var(--white);">{{ finding.vulnerability_type }}</strong>
+                                <span style="font-family:'Space Mono',monospace;font-size:.75rem;color:var(--muted)">Line {{ finding.line_number }}</span>
+                            </div>
+                            <span class="vuln-chevron" style="color:var(--muted);font-size:.8rem;">▾</span>
+                        </div>
+                        <div class="vuln-card-body">
+                            <p style="font-size:.85rem;color:#94A3B8;margin-bottom:.85rem;">{{ finding.description }}</p>
+                            <div class="diff-grid-split">
+                                <div class="diff-panel-box">
+                                    <div class="diff-panel-tag bad">❌ Line {{ finding.line_number }}</div>
+                                    <div class="diff-code-box">
+                                        {{ finding.line_content | trim }}
+                                        <button class="copy-btn-pro" onclick="copyCode(this)">Copy</button>
+                                    </div>
+                                </div>
+                                <div class="diff-panel-box">
+                                    <div class="diff-panel-tag good">✅ Remediation Fix</div>
+                                    <div class="diff-code-box">
+                                        {{ finding.fix }}
+                                        <button class="copy-btn-pro" onclick="copyCode(this)">Copy</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+
+        </div>
+        <!-- END RESULTS -->
+
+        {% else %}} %}%}s="vuln-dot"></div>
+                        <span class="vuln-name">{{ finding.vulnerability_type }}</span>
+                        <span class="vuln-loc">Line {{ finding.line_number }}</span>
+                        <span class="risk-badge risk-{{ finding.risk }}">{{ finding.risk }}</span>
+                        <span class="vuln-chevron">▾</span>
+                    </div>
+                    <div class="vuln-body">
+                        <p class="vuln-desc">{{ finding.description }}</p>
+                        <div class="diff-wrap">
+                            <div class="diff-block bad">
+                                <div class="diff-label bad">❌ Line {{ finding.line_number }}</div>
+                                <div class="diff-code">{{ finding.line_content | trim }}<button class="copy-btn"
+                                        onclick="copyCode(this)">copy</button></div>
+                            </div>
+                            <div class="diff-block good">
+                                <div class="diff-label good">✅ Fix</div>
+                                <div class="diff-code">{{ finding.fix }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endfor %}
+
+        </div>
+        <!-- END RESULTS -->
+
+        {% else %}
+        <!-- ══════════════════════ LANDING / UPLOAD VIEW ══════════════════════ -->
+        <section class="hero">
+            <div>
+                <div style="display:inline-flex;align-items:center;gap:.5rem;padding:.35rem .85rem;border-radius:20px;background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.25);font-size:.72rem;font-weight:700;letter-spacing:1px;color:var(--cyan);font-family:'Space Mono',monospace;margin-bottom:1.25rem;">
+                    <span style="width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);"></span>
+                    NIST FIPS 203 / 204 / 205 COMPLIANT ENGINE
+                </div>
+                <h1 style="font-size:clamp(2.2rem, 4.5vw, 3.4rem);font-weight:800;line-height:1.08;letter-spacing:-1px;margin-bottom:1.25rem;color:var(--white);">
+                    Quantum Threat Is Real.<br>
+                    <span style="background:linear-gradient(135deg, #00E5FF 0%, #818CF8 50%, #00FF9D 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Make Your Codebase Ready.</span>
+                </h1>
+                <p style="font-size:1rem;color:#94A3B8;line-height:1.7;margin-bottom:2rem;max-width:540px;">
+                    Scan your local source files or GitHub repositories instantly. QuantumReady detects RSA, ECC, MD5, and weak encryption — generating exact NIST-approved post-quantum replacements (Kyber & Dilithium).
+                </p>
+                <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:1rem;max-width:480px;">
+                    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,0.3);border-top:2px solid var(--cyan);">
+                        <div style="font-family:'Space Mono',monospace;font-size:1.6rem;font-weight:800;color:var(--cyan);">90%</div>
+                        <div style="font-size:.7rem;color:var(--muted);margin-top:.25rem;font-weight:600;">Apps Vulnerable</div>
+                    </div>
+                    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,0.3);border-top:2px solid var(--red);">
+                        <div style="font-family:'Space Mono',monospace;font-size:1.6rem;font-weight:800;color:var(--red);">2030</div>
+                        <div style="font-size:.7rem;color:var(--muted);margin-top:.25rem;font-weight:600;">RSA Breaks</div>
+                    </div>
+                    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,0.3);border-top:2px solid var(--orange);">
+                        <div style="font-family:'Space Mono',monospace;font-size:1.6rem;font-weight:800;color:var(--orange);">$3.5T</div>
+                        <div style="font-size:.7rem;color:var(--muted);margin-top:.25rem;font-weight:600;">Data at Risk</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="upload-card">
+                <!-- SCANNER MODE TABS -->
+                <div class="scanner-mode-tabs">
+                    <button type="button" class="tab-btn active" id="tabUpload" onclick="switchScanMode('upload')">
+                        📁 Local File / ZIP
+                    </button>
+                    <button type="button" class="tab-btn" id="tabGithub" onclick="switchScanMode('github')">
+                        🐙 GitHub Repository
+                    </button>
+                </div>
+
+                <!-- PANEL 1: LOCAL UPLOAD -->
+                <div class="scan-panel active" id="panelUpload">
+                    <form action="/scan" method="post" enctype="multipart/form-data" id="uploadForm">
+                        <div class="upload-zone" id="uploadZone">
+                            <div class="upload-icon">🔍</div>
+                            <h3>Drop your file here</h3>
+                            <p>Supports .zip archives and .py, .java, .js and more</p>
+                            <div class="file-name" id="fileName"></div>
+                            <input type="file" id="fileInput" name="file"
+                                accept=".zip,.py,.java,.js,.ts,.jsx,.tsx,.c,.cpp,.cs,.go,.rs,.rb,.php,.swift,.kt,.txt">
+                        </div>
+                        <div class="btn-row">
+                            <button type="button" class="btn btn-primary" id="chooseBtn">📁 Choose File</button>
+                            <button type="submit" class="btn btn-secondary" id="scanBtn" disabled>🚀 Start Scan</button>
+                        </div>
+                    </form>
+
+                    <!-- Loading State (hidden by default, shown during upload) -->
+                    <div id="uploadLoadingState" style="display: none; margin-top: 1.5rem;">
+                        <div class="state-card loading" style="background: linear-gradient(135deg, rgba(0, 229, 255, 0.04), rgba(0, 229, 255, 0.02)); border: 1.5px solid rgba(0, 229, 255, 0.3);">
+                            <div style="display: flex; align-items: center; gap: 1.25rem; width: 100%; justify-content: center;">
+                                <div style="font-size: 2rem;">⏳</div>
+                                <div style="text-align: left;">
+                                    <div class="state-title" style="margin-bottom: 0.4rem;">Scanning your code...</div>
+                                    <div class="state-desc" style="font-size: 0.85rem; margin: 0; max-width: 100%;">Analyzing quantum vulnerabilities. This typically takes 5-15 seconds.</div>
+                                </div>
+                            </div>
+                            <div class="skeleton-loader" style="margin-top: 1rem; width: 100%;">
+                                <div class="skeleton-box" style="height: 48px; margin-bottom: 0.5rem;"></div>
+                                <div class="skeleton-box" style="height: 48px; width: 85%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PANEL 2: GITHUB LIVE SCAN -->
+                <div class="scan-panel" id="panelGithub">
+                    <div class="github-form-group">
+                        <label class="field-label" for="githubRepoUrl">
+                            <span>GITHUB REPOSITORY URL</span>
+                            <span style="color:var(--cyan);font-size:.68rem">⚡ LIVE WEBSOCKET STREAM</span>
+                        </label>
+                        <input type="text" id="githubRepoUrl" class="text-input"
+                            placeholder="e.g. https://github.com/owner/repo or owner/repo" autocomplete="off" spellcheck="false">
+
+                        <div class="sample-repos">
+                            <span style="font-size:.68rem;color:var(--muted)">Try demo:</span>
+                            <span class="sample-tag" onclick="fillGithubRepo('https://github.com/quantum/crypto-demo', 'main')">quantum/crypto-demo</span>
+                            <span class="sample-tag" onclick="fillGithubRepo('https://github.com/torvalds/linux', 'master')">torvalds/linux</span>
+                        </div>
+                    </div>
+
+                    <div class="github-form-group">
+                        <label class="field-label" for="githubBranch">
+                            <span>BRANCH (OPTIONAL)</span>
+                            <span style="color:var(--muted);font-size:.68rem">Defaults to main/master</span>
+                        </label>
+                        <input type="text" id="githubBranch" class="text-input" placeholder="e.g. main, master, or branch-name">
+                    </div>
+
+                    <div class="btn-row">
+                        <button type="button" class="btn btn-primary" id="githubScanBtn" onclick="startGithubLiveScan()">
+                            🚀 Start Live Scan
+                        </button>
+                        <button type="button" class="btn btn-ghost" id="githubClearBtn" onclick="clearGithubScan()">
+                            ✕ Reset
+                        </button>
+                    </div>
+
+                    <!-- GitHub Error State (hidden by default) -->
+                    <div id="githubErrorState" style="display: none; margin-top: 1.5rem;">
+                        <div class="state-card error" style="text-align: center;">
+                            <div class="state-icon">🚫</div>
+                            <div class="state-title">Unable to Access Repository</div>
+                            <div class="state-desc" id="githubErrorMsg">Please check the repository URL and try again. Ensure the repository is public or you have proper authentication.</div>
+                            <button type="button" class="btn btn-secondary" style="font-size: .78rem; padding: .4rem .8rem; margin-top: 0.75rem;" onclick="document.getElementById('githubErrorState').style.display = 'none';">✕ Dismiss</button>
+                        </div>
+                    </div>
+
+                    <!-- GitHub Rate Limit State (hidden by default) -->
+                    <div id="githubRateLimitState" style="display: none; margin-top: 1.5rem;">
+                        <div class="state-card warning" style="text-align: center;">
+                            <div class="state-icon">⏱️</div>
+                            <div class="state-title">GitHub API Rate Limited</div>
+                            <div class="state-desc">You've exceeded the GitHub API rate limit. Please wait a few minutes before trying again, or provide a GitHub personal access token for higher limits.</div>
+                            <button type="button" class="btn btn-secondary" style="font-size: .78rem; padding: .4rem .8rem; margin-top: 0.75rem;" onclick="document.getElementById('githubRateLimitState').style.display = 'none';">✕ Dismiss</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- LIVE GITHUB STREAMING CARD -->
+        <div class="live-stream-card" id="liveStreamCard">
+            <div class="live-header">
+                <div class="live-title">
+                    <div class="pulse-dot" id="liveDot"></div>
+                    <span id="liveTitleText">Scanning GitHub Repository</span>
+                    <span class="live-status-pill" id="liveRepoPill">owner/repo</span>
+                </div>
+                <div style="display:flex;gap:.5rem;align-items:center;">
+                    <button type="button" class="btn btn-ghost" style="padding:.35rem .75rem;font-size:.74rem" onclick="cancelGithubScan()">✕ Stop Scan</button>
+                </div>
+            </div>
+
+            <!-- Enhanced Progress Section -->
+            <div class="live-progress-container" style="background: linear-gradient(135deg, var(--surf2)/0.8, var(--surface)/0.6); border-radius:12px; padding:1.5rem;">
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;">
+                    <div style="background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:.8rem;text-align:center;">
+                        <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.4rem;">Files Scanned</div>
+                        <div style="font-family:'Space Mono',monospace;font-size:1.6rem;font-weight:800;color:var(--primary);" id="liveFileCount">0</div>
+                    </div>
+                    <div style="background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:.8rem;text-align:center;">
+                        <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.4rem;">Findings</div>
+                        <div style="font-family:'Space Mono',monospace;font-size:1.6rem;font-weight:800;color:var(--orange);" id="liveFindingCount">0</div>
+                    </div>
+                    <div style="background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:.8rem;text-align:center;">
+                        <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.4rem;">Progress</div>
+                        <div style="font-family:'Space Mono',monospace;font-size:1.6rem;font-weight:800;color:var(--cyan);" id="liveProgressPercent">0%</div>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div style="margin-top:1.25rem;">
+                    <div class="live-progress-label" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;">
+                        <span id="liveProgressText" style="font-size:.8rem;color:var(--muted);">Initializing WebSocket connection...</span>
+                        <span style="font-size:.72rem;color:var(--text-low);font-family:'Space Mono',monospace;" id="liveCurrentFile">Waiting...</span>
+                    </div>
+                    <div class="live-progress-bar" style="height:10px;background:var(--bg-card);border-radius:6px;overflow:hidden;border:1px solid var(--line);">
+                        <div class="live-progress-fill" id="liveProgressFill" style="width:0%;height:100%;transition:width 0.3s ease;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Incoming Scanned Files Feed -->
+            <div style="margin-top:1.5rem;">
+                <div class="live-feed-header" style="font-size:.78rem;font-family:'Space Mono',monospace;letter-spacing:1px;color:var(--cyan);margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;">
+                    <span>📁 INCOMING SCANNED FILES (LIVE)</span>
+                    <span id="liveFeedCounter" style="color:var(--muted);font-weight:400;">0 files scanned</span>
+                </div>
+                <div class="live-feed-list" id="liveFeedList" style="display:flex;flex-direction:column;gap:.6rem;max-height:480px;overflow-y:auto;">
+                    <!-- Files scan in here one by one as WebSocket events arrive -->
+                </div>
+            </div>
+
+            <!-- Final Completion Summary -->
+            <div class="live-summary-card" id="liveSummaryCard" style="display:none;">
+                <div id="liveSummaryContent"></div>
+            </div>
+        </div>
+
+        <!-- Toast Notifications Container -->
+        <div id="toastContainer" class="toast-container"></div>
+        {% endif %}
+
+    </main>
+
+    <!-- ══════════════════════════════════════════════════════════
+         HOW IT WORKS SECTION
+    ══════════════════════════════════════════════════════════ -->
+    <section id="how-it-works" style="
+        border-top: 1px solid var(--border);
+        padding: 5rem 2rem 4rem;
+        max-width: 1200px;
+        margin: 0 auto;
+        position: relative;
+        z-index: 1;
+    ">
+        <!-- Section Header -->
+        <div style="text-align:center; margin-bottom: 3rem;">
+            <div style="font-size:.72rem; font-weight:700; letter-spacing:3px; color:var(--cyan); font-family:'Space Mono',monospace; margin-bottom:.75rem;">⚙️ HOW IT WORKS</div>
+            <h2 style="font-size:2.2rem; font-weight:800; color:var(--white); margin-bottom:.75rem;">From Upload to Quantum-Safe in Seconds</h2>
+            <p style="color:var(--muted); font-size:.95rem; max-width:600px; margin:0 auto; line-height:1.7;">Upload your code, and QuantumReady does the heavy lifting — scanning every line, predicting risk with ML, and generating NIST-approved fixes automatically.</p>
+        </div>
+
+        <!-- 4-Step Flow -->
+        <div style="display:flex; gap:0; align-items:stretch; flex-wrap:wrap; justify-content:center; margin-bottom:3.5rem;">
+
+            <!-- Step 1 -->
+            <div style="flex:1; min-width:180px; max-width:240px; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:1.75rem 1.2rem; text-align:center; position:relative; margin:0.4rem;">
+                <div style="width:38px;height:38px;border-radius:50%;background:rgba(0,229,255,.1);border:1.5px solid var(--cyan);color:var(--cyan);font-size:.85rem;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">01</div>
+                <div style="font-size:2rem; margin-bottom:.6rem;">📁</div>
+                <div style="font-size:.92rem; font-weight:700; color:var(--white); margin-bottom:.4rem;">Upload</div>
+                <div style="font-size:.78rem; color:var(--muted); line-height:1.6;">Drop a <code style="color:var(--cyan);background:var(--surf2);padding:.1rem .3rem;border-radius:3px;">.zip</code> or any source file — Python, Java, JS, Go, and more.</div>
+            </div>
+
+            <div style="display:flex;align-items:center;padding:0 .2rem;color:var(--cyan);font-size:1.4rem;align-self:center;">→</div>
+
+            <!-- Step 2 -->
+            <div style="flex:1; min-width:180px; max-width:240px; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:1.75rem 1.2rem; text-align:center; position:relative; margin:0.4rem;">
+                <div style="width:38px;height:38px;border-radius:50%;background:rgba(129,140,248,.1);border:1.5px solid var(--indigo);color:var(--indigo);font-size:.85rem;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">02</div>
+                <div style="font-size:2rem; margin-bottom:.6rem;">🔍</div>
+                <div style="font-size:.92rem; font-weight:700; color:var(--white); margin-bottom:.4rem;">Static Scan</div>
+                <div style="font-size:.78rem; color:var(--muted); line-height:1.6;">Our regex engine scans every line for 8 vulnerable algorithm types — with exact line numbers.</div>
+            </div>
+
+            <div style="display:flex;align-items:center;padding:0 .2rem;color:var(--cyan);font-size:1.4rem;align-self:center;">→</div>
+
+            <!-- Step 3 -->
+            <div style="flex:1; min-width:180px; max-width:240px; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:1.75rem 1.2rem; text-align:center; position:relative; margin:0.4rem;">
+                <div style="width:38px;height:38px;border-radius:50%;background:rgba(0,255,157,.1);border:1.5px solid var(--green);color:var(--green);font-size:.85rem;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">03</div>
+                <div style="font-size:2rem; margin-bottom:.6rem;">🤖</div>
+                <div style="font-size:.92rem; font-weight:700; color:var(--white); margin-bottom:.4rem;">ML Risk Score</div>
+                <div style="font-size:.78rem; color:var(--muted); line-height:1.6;">Random Forest classifier predicts Low / Medium / High quantum risk with confidence percentage.</div>
+            </div>
+
+            <div style="display:flex;align-items:center;padding:0 .2rem;color:var(--cyan);font-size:1.4rem;align-self:center;">→</div>
+
+            <!-- Step 4 -->
+            <div style="flex:1; min-width:180px; max-width:240px; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:1.75rem 1.2rem; text-align:center; position:relative; margin:0.4rem;">
+                <div style="width:38px;height:38px;border-radius:50%;background:rgba(255,152,0,.1);border:1.5px solid var(--orange);color:var(--orange);font-size:.85rem;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">04</div>
+                <div style="font-size:2rem; margin-bottom:.6rem;">🛡️</div>
+                <div style="font-size:.92rem; font-weight:700; color:var(--white); margin-bottom:.4rem;">NIST Fixes</div>
+                <div style="font-size:.78rem; color:var(--muted); line-height:1.6;">Get exact code replacements from NIST FIPS 203/204/205. Download as PDF report.</div>
+            </div>
+        </div>
+
+        <!-- Detail Cards 2x2 -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.25rem;">
+
+            <div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--cyan);border-radius:12px;padding:1.4rem;">
+                <div style="font-size:.8rem;font-weight:700;color:var(--cyan);letter-spacing:1px;margin-bottom:.6rem;">🔬 STATIC ANALYSIS ENGINE</div>
+                <p style="font-size:.85rem;color:#ADBAC7;line-height:1.65;margin-bottom:.75rem;">Scans every line of your source code using regex pattern matching. Detects RSA, ECC, MD5, SHA1, Diffie-Hellman, Weak TLS, and more. Returns exact file path and line number for each finding.</p>
+                <code style="display:block;background:var(--surf2);border-radius:6px;padding:.65rem .8rem;font-size:.72rem;color:var(--green);font-family:'Space Mono',monospace;line-height:1.7;">scanner.py → scan_file() → scan_text_with_lines()
+→ Returns: { line_number, vulnerability_type, risk }</code>
+            </div>
+
+            <div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--indigo);border-radius:12px;padding:1.4rem;">
+                <div style="font-size:.8rem;font-weight:700;color:var(--indigo);letter-spacing:1px;margin-bottom:.6rem;">🤖 RANDOM FOREST ML MODEL</div>
+                <p style="font-size:.85rem;color:#ADBAC7;line-height:1.65;margin-bottom:.75rem;">Trained on a synthetic 60-sample dataset. Takes an 8-feature binary vector as input and outputs a risk class with probability scores. Uses 5-fold cross-validation for reliable accuracy.</p>
+                <code style="display:block;background:var(--surf2);border-radius:6px;padding:.65rem .8rem;font-size:.72rem;color:var(--green);font-family:'Space Mono',monospace;line-height:1.7;">Features: [RSA, ECC, MD5, SHA1, DH, TLS, AES, PQC]
+→ Output: Low / Medium / High + confidence %</code>
+            </div>
+
+            <div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--green);border-radius:12px;padding:1.4rem;">
+                <div style="font-size:.8rem;font-weight:700;color:var(--green);letter-spacing:1px;margin-bottom:.6rem;">⚡ RISK ENGINE + SCORING</div>
+                <p style="font-size:.85rem;color:#ADBAC7;line-height:1.65;margin-bottom:.75rem;">Rule-based classifier assigns CRITICAL / HIGH / MEDIUM / LOW per file. Score starts at 100 and deducts penalty points per vulnerability type found. Overall project score calculated across all files.</p>
+                <code style="display:block;background:var(--surf2);border-radius:6px;padding:.65rem .8rem;font-size:.72rem;color:var(--green);font-family:'Space Mono',monospace;line-height:1.7;">RSA/ECC/DH  → -25 pts each (CRITICAL)
+MD5/SHA1/TLS → -15 pts each (HIGH)
+Score = max(0, 100 - penalties)</code>
+            </div>
+
+            <div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--orange);border-radius:12px;padding:1.4rem;">
+                <div style="font-size:.8rem;font-weight:700;color:var(--orange);letter-spacing:1px;margin-bottom:.6rem;">📄 PDF REPORT GENERATOR</div>
+                <p style="font-size:.85rem;color:#ADBAC7;line-height:1.65;margin-bottom:.75rem;">Generates a professional security report with ReportLab. Includes overall risk level, ML prediction, file-by-file findings table, and quantum-safe code examples for every vulnerability detected.</p>
+                <code style="display:block;background:var(--surf2);border-radius:6px;padding:.65rem .8rem;font-size:.72rem;color:var(--green);font-family:'Space Mono',monospace;line-height:1.7;">report → Risk Level + Score + ML result
+→ Findings table + NIST fix code
+→ Download as .pdf</code>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════
+         ALGORITHMS SECTION
+    ══════════════════════════════════════════════════════════ -->
+    <section id="algorithms" style="
+        border-top: 1px solid var(--border);
+        padding: 5rem 2rem 4rem;
+        background: rgba(13,17,23,0.6);
+        position: relative;
+        z-index: 1;
+    ">
+        <div style="max-width:1200px; margin:0 auto;">
+
+            <!-- Header -->
+            <div style="text-align:center; margin-bottom:3rem;">
+                <div style="font-size:.72rem; font-weight:700; letter-spacing:3px; color:var(--red); font-family:'Space Mono',monospace; margin-bottom:.75rem;">🔐 ALGORITHMS</div>
+                <h2 style="font-size:2.2rem; font-weight:800; color:var(--white); margin-bottom:.75rem;">What QuantumReady Detects</h2>
+                <p style="color:var(--muted); font-size:.95rem; max-width:600px; margin:0 auto; line-height:1.7;">8 cryptographic vulnerabilities detected — ranked by quantum threat level. Each comes with the exact NIST-approved replacement.</p>
+            </div>
+
+            <!-- CRITICAL Algorithms -->
+            <div style="font-size:.72rem;font-weight:700;letter-spacing:2.5px;color:var(--muted);text-transform:uppercase;margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border);">💀 CRITICAL — Broken by Shor's Algorithm (Quantum)</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:2rem;">
+
+                <div style="background:var(--surface);border:1px solid rgba(255,56,96,.2);border-top:3px solid var(--red);border-radius:12px;overflow:hidden;">
+                    <div style="padding:1rem 1rem .75rem;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;">
+                            <span style="font-size:1rem;font-weight:800;color:var(--white);">RSA</span>
+                            <span style="font-size:.65rem;font-weight:700;letter-spacing:1.5px;background:rgba(255,56,96,.15);color:var(--red);border:1px solid rgba(255,56,96,.3);padding:.2rem .5rem;border-radius:4px;font-family:'Space Mono',monospace;">CRITICAL</span>
+                        </div>
+                        <p style="font-size:.78rem;color:var(--muted);line-height:1.55;margin-bottom:.75rem;">RSA encryption is fully broken by Shor's Algorithm on a sufficiently large quantum computer. All key sizes are vulnerable.</p>
+                        <div style="font-size:.72rem;color:var(--muted);margin-bottom:.3rem;font-weight:600;">❌ VULNERABLE</div>
+                        <code style="display:block;background:var(--surf2);border-radius:5px;padding:.5rem .65rem;font-size:.7rem;color:var(--red);font-family:'Space Mono',monospace;line-height:1.6;margin-bottom:.5rem;">from Crypto.PublicKey import RSA
+key = RSA.generate(2048)</code>
+                        <div style="font-size:.72rem;color:var(--green);margin-bottom:.3rem;font-weight:600;">✅ QUANTUM-SAFE</div>
+                        <code style="display:block;background:var(--surf2);border-radius:5px;padding:.5rem .65rem;font-size:.7rem;color:var(--green);font-family:'Space Mono',monospace;line-height:1.6;margin-bottom:.5rem;">import oqs
+kem = oqs.KeyEncapsulation("Kyber512")
+pub = kem.generate_keypair()</code>
+                        <div style="font-size:.68rem;font-family:'Space Mono',monospace;background:rgba(129,140,248,.08);color:var(--indigo);border:1px solid rgba(129,140,248,.2);padding:.25rem .5rem;border-radius:4px;">🔐 NIST FIPS 203 (CRYSTALS-Kyber)</div>
+                    </div>
+                </div>
+
+                <div style="background:var(--surface);border:1px solid rgba(255,56,96,.2);border-top:3px solid var(--red);border-radius:12px;overflow:hidden;">
+                    <div style="padding:1rem 1rem .75rem;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;">
+                            <span style="font-size:1rem;font-weight:800;color:var(--white);">ECC</span>
+                            <span style="font-size:.65rem;font-weight:700;letter-spacing:1.5px;background:rgba(255,56,96,.15);color:var(--red);border:1px solid rgba(255,56,96,.3);padding:.2rem .5rem;border-radius:4px;font-family:'Space Mono',monospace;">CRITICAL</span>
+                        </div>
+                        <p style="font-size:.78rem;color:var(--muted);line-height:1.55;margin-bottom:.75rem;">Elliptic Curve Cryptography including secp256k1 and NIST P-curves is broken by Shor's Algorithm. Used widely in TLS and Bitcoin.</p>
+                        <div style="font-size:.72rem;color:var(--muted);margin-bottom:.3rem;font-weight:600;">❌ VULNERABLE</div>
+                        <code style="display:block;background:var(--surf2);border-radius:5px;padding:.5rem .65rem;font-size:.7rem;color:var(--red);font-family:'Space Mono',monospace;line-height:1.6;margin-bottom:.5rem;">from Crypto.PublicKey import ECC
+key = ECC.generate(curve="P-256")</code>
+                        <div style="font-size:.72rem;color:var(--green);margin-bottom:.3rem;font-weight:600;">✅ QUANTUM-SAFE</div>
+                        <code style="display:block;background:var(--surf2);border-radius:5px;padding:.5rem .65rem;font-size:.7rem;color:var(--green);font-family:'Space Mono',monospace;line-height:1.6;margin-bottom:.5rem;">import oqs
+sig = oqs.Signature("Dilithium3")
+pub = sig.generate_keypair()</code>
+                        <div style="font-size:.68rem;font-family:'Space Mono',monospace;background:rgba(129,140,248,.08);color:var(--indigo);border:1px solid rgba(129,140,248,.2);padding:.25rem .5rem;border-radius:4px;">🔐 NIST FIPS 204 (CRYSTALS-Dilithium)</div>
+                    </div>
+                </div>
+
+                <div style="background:var(--surface);border:1px solid rgba(255,56,96,.2);border-top:3px solid var(--red);border-radius:12px;overflow:hidden;">
+                    <div style="padding:1rem 1rem .75rem;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;">
+                            <span style="font-size:1rem;font-weight:800;color:var(--white);">Diffie-Hellman</span>
+                            <span style="font-size:.65rem;font-weight:700;letter-spacing:1.5px;background:rgba(255,56,96,.15);color:var(--red);border:1px solid rgba(255,56,96,.3);padding:.2rem .5rem;border-radius:4px;font-family:'Space Mono',monospace;">CRITICAL</span>
+                        </div>
+                        <p style="font-size:.78rem;color:var(--muted);line-height:1.55;margin-bottom:.75rem;">DH key exchange relies on the discrete logarithm problem, which Shor's Algorithm solves efficiently on quantum hardware.</p>
+                        <div style="font-size:.72rem;color:var(--muted);margin-bottom:.3rem;font-weight:600;">❌ VULNERABLE</div>
+                        <code style="display:block;background:var(--surf2);border-radius:5px;padding:.5rem .65rem;font-size:.7rem;color:var(--red);font-family:'Space Mono',monospace;line-height:1.6;margin-bottom:.5rem;">DiffieHellman.generateKey()
+# or DHKeyPairGenerator usage</code>
+                        <div style="font-size:.72rem;color:var(--green);margin-bottom:.3rem;font-weight:600;">✅ QUANTUM-SAFE</div>
+                        <code style="display:block;background:var(--surf2);border-radius:5px;padding:.5rem .65rem;font-size:.7rem;color:var(--green);font-family:'Space Mono',monospace;line-height:1.6;margin-bottom:.5rem;">kem = oqs.KeyEncapsulation("Kyber768")
+pub = kem.generate_keypair()
+ct, ss = kem.encap_secret(pub)</code>
+                        <div style="font-size:.68rem;font-family:'Space Mono',monospace;background:rgba(129,140,248,.08);color:var(--indigo);border:1px solid rgba(129,140,248,.2);padding:.25rem .5rem;border-radius:4px;">🔐 NIST FIPS 203 (Kyber KEM)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HIGH Algorithms -->
+            <div style="font-size:.72rem;font-weight:700;letter-spacing:2.5px;color:var(--muted);text-transform:uppercase;margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border);">🔴 HIGH — Broken on Classical Computers Today</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:2rem;">
+
+                <div style="background:var(--surface);border:1px solid rgba(255,152,0,.2);border-top:3px solid var(--orange);border-radius:12px;padding:1rem;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;">
+                        <span style="font-size:1rem;font-weight:800;color:var(--white);">MD5</span>
+                        <span style="font-size:.65rem;font-weight:700;background:rgba(255,152,0,.15);color:var(--orange);border:1px solid rgba(255,152,0,.3);padding:.2rem .5rem;border-radius:4px;font-family:'Space Mono',monospace;">HIGH</span>
+                    </div>
+                    <p style="font-size:.78rem;color:var(--muted);line-height:1.55;margin-bottom:.6rem;">MD5 has known collision attacks — two different inputs can produce the same hash. Never use for passwords or integrity checks.</p>
+                    <code style="display:block;background:var(--surf2);border-radius:5px;padding:.5rem;font-size:.7rem;color:var(--red);font-family:'Space Mono',monospace;line-height:1.6;margin-bottom:.4rem;">hashlib.md5(data).hexdigest()</code>
+                    <code style="display:block;background:var(--surf2);border-radius:5px;padding:.5rem;font-size:.7rem;color:var(--green);font-family:'Space Mono',monospace;line-height:1.6;margin-bottom:.4rem;">hashlib.sha3_256(data).hexdigest()</code>
+                    <div style="font-size:.68rem;font-family:'Space Mono',monospace;background:rgba(129,140,248,.08);color:var(--indigo);border:1px solid rgba(129,140,248,.2);padding:.2rem .45rem;border-radius:4px;">🔐 NIST FIPS 202 (SHA-3)</div>
+                </div>
+
+                <div style="background:var(--surface);border:1px solid rgba(255,152,0,.2);border-top:3px solid var(--orange);border-radius:12px;padding:1rem;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;">
+                        <span style="font-size:1rem;font-weight:800;color:var(--white);">SHA-1</span>
+                        <span style="font-size:.65rem;font-weight:700;background:rgba(255,152,0,.15);color:var(--orange);border:1px solid rgba(255,152,0,.3);padding:.2rem .5rem;border-radius:4px;font-family:'Space Mono',monospace;">HIGH</span>
+                    </div>
+                    <p style="font-size:.78rem;color:var(--muted);line-height:1.55;margin-bottom:.6rem;">SHA-1 collisions were demonstrated in 2017 (SHAttered attack). Chrome, Firefox, and CAs have deprecated it. Still found in legacy code.</p>
+                    <code style="display:block;background:var(--surf2);border-radius:5px;padding:.5rem;font-size:.7rem;color:var(--red);font-family:'Space Mono',monospace;line-height:1.6;margin-bottom:.4rem;">hashlib.sha1(data).hexdigest()</code>
+                    <code style="display:block;background:var(--surf2);border-radius:5px;padding:.5rem;font-size:.7rem;color:var(--green);font-family:'Space Mono',monospace;line-height:1.6;margin-bottom:.4rem;">hashlib.sha3_256(data).hexdigest()</code>
+                    <div style="font-size:.68rem;font-family:'Space Mono',monospace;background:rgba(129,140,248,.08);color:var(--indigo);border:1px solid rgba(129,140,248,.2);padding:.2rem .45rem;border-radius:4px;">🔐 NIST FIPS 202 (SHA-3)</div>
+                </div>
+
+                <div style="background:var(--surface);border:1px solid rgba(255,152,0,.2);border-top:3px solid var(--orange);border-radius:12px;padding:1rem;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;">
+                        <span style="font-size:1rem;font-weight:800;color:var(--white);">Weak TLS</span>
+                        <span style="font-size:.65rem;font-weight:700;background:rgba(255,152,0,.15);color:var(--orange);border:1px solid rgba(255,152,0,.3);padding:.2rem .5rem;border-radius:4px;font-family:'Space Mono',monospace;">HIGH</span>
+                    </div>
+                    <p style="font-size:.78rem;color:var(--muted);line-height:1.55;margin-bottom:.6rem;">TLS 1.0 and TLS 1.1 are deprecated by RFC 8996. Vulnerable to POODLE, BEAST, and multiple downgrade attacks.</p>
+                    <code style="display:block;background:var(--surf2);border-radius:5px;padding:.5rem;font-size:.7rem;color:var(--red);font-family:'Space Mono',monospace;line-height:1.6;margin-bottom:.4rem;">ssl.PROTOCOL_TLSv1  # deprecated</code>
+                    <code style="display:block;background:var(--surf2);border-radius:5px;padding:.5rem;font-size:.7rem;color:var(--green);font-family:'Space Mono',monospace;line-height:1.6;margin-bottom:.4rem;">ctx.minimum_version = TLSVersion.TLSv1_3</code>
+                    <div style="font-size:.68rem;font-family:'Space Mono',monospace;background:rgba(129,140,248,.08);color:var(--indigo);border:1px solid rgba(129,140,248,.2);padding:.2rem .45rem;border-radius:4px;">🔐 NIST SP 800-52 Rev. 2</div>
+                </div>
+            </div>
+
+            <!-- MEDIUM + LOW -->
+            <div style="font-size:.72rem;font-weight:700;letter-spacing:2.5px;color:var(--muted);text-transform:uppercase;margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border);">⚠️ MEDIUM / LOW — Weakened by Grover's Algorithm</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+
+                <div style="background:var(--surface);border:1px solid rgba(255,214,0,.15);border-left:3px solid var(--yellow);border-radius:12px;padding:1rem;">
+                    <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem;">
+                        <span style="font-size:.95rem;font-weight:800;color:var(--white);">KeyPairGenerator</span>
+                        <span style="font-size:.65rem;font-weight:700;background:rgba(255,214,0,.1);color:var(--yellow);border:1px solid rgba(255,214,0,.2);padding:.2rem .45rem;border-radius:4px;font-family:'Space Mono',monospace;">MEDIUM</span>
+                    </div>
+                    <p style="font-size:.78rem;color:var(--muted);line-height:1.55;">Java's <code style="color:var(--cyan);background:var(--surf2);padding:.05rem .3rem;border-radius:3px;">KeyPairGenerator</code> detected — risk depends on the algorithm used. If RSA or EC, it is CRITICAL. Must be reviewed and replaced.</p>
+                </div>
+
+                <div style="background:var(--surface);border:1px solid rgba(0,255,157,.1);border-left:3px solid var(--green);border-radius:12px;padding:1rem;">
+                    <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem;">
+                        <span style="font-size:.95rem;font-weight:800;color:var(--white);">AES</span>
+                        <span style="font-size:.65rem;font-weight:700;background:rgba(0,255,157,.08);color:var(--green);border:1px solid rgba(0,255,157,.2);padding:.2rem .45rem;border-radius:4px;font-family:'Space Mono',monospace;">LOW</span>
+                    </div>
+                    <p style="font-size:.78rem;color:var(--muted);line-height:1.55;">Grover's Algorithm halves AES key strength. AES-128 → 64-bit quantum security (too weak). AES-256 → 128-bit security (acceptable). Always use <code style="color:var(--green);background:var(--surf2);padding:.05rem .3rem;border-radius:3px;">AES-256-GCM</code>.</p>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════
+         ABOUT SECTION
+    ══════════════════════════════════════════════════════════ -->
+    <section id="about" style="
+        border-top: 1px solid var(--border);
+        padding: 5rem 2rem 4rem;
+        position: relative;
+        z-index: 1;
+    ">
+        <div style="max-width:1200px; margin:0 auto;">
+
+            <!-- Header -->
+            <div style="text-align:center; margin-bottom:3rem;">
+                <div style="font-size:.72rem; font-weight:700; letter-spacing:3px; color:var(--indigo); font-family:'Space Mono',monospace; margin-bottom:.75rem;">ℹ️ ABOUT</div>
+                <h2 style="font-size:2.2rem; font-weight:800; color:var(--white); margin-bottom:.75rem;">Why Quantum Cryptography Matters Now</h2>
+                <p style="color:var(--muted); font-size:.95rem; max-width:650px; margin:0 auto 2rem; line-height:1.7;">Quantum computers don't exist at scale yet — but adversaries are harvesting encrypted data today to decrypt it the moment they do. This is called <strong style="color:var(--cyan);">Harvest Now, Decrypt Later</strong>. The time to act is now.</p>
+            </div>
+
+            <!-- Threat Timeline Bar -->
+            <div style="margin-bottom:2.5rem;">
+                <div style="font-size:.72rem;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:.75rem;font-family:'Space Mono',monospace;">📅 QUANTUM THREAT TIMELINE</div>
+                <div style="display:flex;border-radius:8px;overflow:hidden;height:44px;">
+                    <div style="flex:2;background:rgba(0,255,157,.15);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:var(--green);border-right:1px solid var(--border);">2024 — NIST Standards Published</div>
+                    <div style="flex:2;background:rgba(255,214,0,.12);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:var(--yellow);border-right:1px solid var(--border);">2026-2028 — Migration Window</div>
+                    <div style="flex:1.5;background:rgba(255,152,0,.15);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:var(--orange);border-right:1px solid var(--border);">2029 — Deadline</div>
+                    <div style="flex:1;background:rgba(255,56,96,.2);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:var(--red);">2030 💀</div>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:.4rem;font-size:.7rem;color:var(--muted);font-family:'Space Mono',monospace;">
+                    <span>← Act Now</span><span>RSA Breaks →</span>
+                </div>
+            </div>
+
+            <!-- 3 About Cards -->
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem;margin-bottom:2.5rem;">
+
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.5rem;text-align:center;">
+                    <div style="font-size:2rem;margin-bottom:.75rem;">⚛️</div>
+                    <h3 style="font-size:.95rem;font-weight:700;color:var(--white);margin-bottom:.5rem;">The Quantum Threat</h3>
+                    <p style="font-size:.8rem;color:var(--muted);line-height:1.65;">Shor's Algorithm (1994) proves that quantum computers can factor large numbers and solve discrete logarithms exponentially faster than classical computers — breaking RSA, ECC, and DH instantly.</p>
+                </div>
+
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.5rem;text-align:center;">
+                    <div style="font-size:2rem;margin-bottom:.75rem;">🏛️</div>
+                    <h3 style="font-size:.95rem;font-weight:700;color:var(--white);margin-bottom:.5rem;">NIST Response (2024)</h3>
+                    <p style="font-size:.8rem;color:var(--muted);line-height:1.65;">In August 2024, NIST published three post-quantum standards: <strong style="color:var(--cyan);">FIPS 203</strong> (Kyber — key exchange), <strong style="color:var(--cyan);">FIPS 204</strong> (Dilithium — signatures), and <strong style="color:var(--cyan);">FIPS 205</strong> (SPHINCS+ — hash signatures).</p>
+                </div>
+
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.5rem;text-align:center;">
+                    <div style="font-size:2rem;margin-bottom:.75rem;">🛠️</div>
+                    <h3 style="font-size:.95rem;font-weight:700;color:var(--white);margin-bottom:.5rem;">QuantumReady's Role</h3>
+                    <p style="font-size:.8rem;color:var(--muted);line-height:1.65;">QuantumReady is a free, open-source tool that helps developers identify quantum-vulnerable code and migrate to NIST-approved algorithms before the deadline — with zero setup and zero cost.</p>
+                </div>
+            </div>
+
+            <!-- Key Stats -->
+            <div style="display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;margin-bottom:2.5rem;">
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem 1.5rem;text-align:center;flex:1;min-width:130px;">
+                    <div style="font-size:1.8rem;font-weight:800;color:var(--cyan);font-family:'Space Mono',monospace;">90%</div>
+                    <div style="font-size:.72rem;color:var(--muted);margin-top:.2rem;">Apps use vulnerable crypto</div>
+                </div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem 1.5rem;text-align:center;flex:1;min-width:130px;">
+                    <div style="font-size:1.8rem;font-weight:800;color:var(--red);font-family:'Space Mono',monospace;">2030</div>
+                    <div style="font-size:.72rem;color:var(--muted);margin-top:.2rem;">RSA breaks completely</div>
+                </div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem 1.5rem;text-align:center;flex:1;min-width:130px;">
+                    <div style="font-size:1.8rem;font-weight:800;color:var(--orange);font-family:'Space Mono',monospace;">$3.5T</div>
+                    <div style="font-size:.72rem;color:var(--muted);margin-top:.2rem;">Global data at risk</div>
+                </div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem 1.5rem;text-align:center;flex:1;min-width:130px;">
+                    <div style="font-size:1.8rem;font-weight:800;color:var(--green);font-family:'Space Mono',monospace;">$0</div>
+                    <div style="font-size:.72rem;color:var(--muted);margin-top:.2rem;">Cost to use QuantumReady</div>
+                </div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem 1.5rem;text-align:center;flex:1;min-width:130px;">
+                    <div style="font-size:1.8rem;font-weight:800;color:var(--indigo);font-family:'Space Mono',monospace;">8</div>
+                    <div style="font-size:.72rem;color:var(--muted);margin-top:.2rem;">Vulnerabilities detected</div>
+                </div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem 1.5rem;text-align:center;flex:1;min-width:130px;">
+                    <div style="font-size:1.8rem;font-weight:800;color:var(--cyan);font-family:'Space Mono',monospace;">27M+</div>
+                    <div style="font-size:.72rem;color:var(--muted);margin-top:.2rem;">Developers who need this</div>
+                </div>
+            </div>
+
+            <!-- Built With -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.5rem;">
+                <div style="font-size:.72rem;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:1rem;font-family:'Space Mono',monospace;">🔧 BUILT WITH</div>
+                <div style="display:flex;flex-wrap:wrap;gap:.6rem;">
+                    <span style="background:var(--surf2);color:var(--cyan);border:1px solid var(--border);padding:.3rem .75rem;border-radius:6px;font-size:.78rem;font-weight:600;">Python 3</span>
+                    <span style="background:var(--surf2);color:var(--cyan);border:1px solid var(--border);padding:.3rem .75rem;border-radius:6px;font-size:.78rem;font-weight:600;">Flask</span>
+                    <span style="background:var(--surf2);color:var(--cyan);border:1px solid var(--border);padding:.3rem .75rem;border-radius:6px;font-size:.78rem;font-weight:600;">scikit-learn</span>
+                    <span style="background:var(--surf2);color:var(--cyan);border:1px solid var(--border);padding:.3rem .75rem;border-radius:6px;font-size:.78rem;font-weight:600;">Random Forest</span>
+                    <span style="background:var(--surf2);color:var(--cyan);border:1px solid var(--border);padding:.3rem .75rem;border-radius:6px;font-size:.78rem;font-weight:600;">ReportLab PDF</span>
+                    <span style="background:var(--surf2);color:var(--cyan);border:1px solid var(--border);padding:.3rem .75rem;border-radius:6px;font-size:.78rem;font-weight:600;">Jinja2</span>
+                    <span style="background:var(--surf2);color:var(--cyan);border:1px solid var(--border);padding:.3rem .75rem;border-radius:6px;font-size:.78rem;font-weight:600;">Regex Engine</span>
+                    <span style="background:var(--surf2);color:var(--cyan);border:1px solid var(--border);padding:.3rem .75rem;border-radius:6px;font-size:.78rem;font-weight:600;">NIST FIPS 203/204/205</span>
+                    <span style="background:var(--surf2);color:var(--cyan);border:1px solid var(--border);padding:.3rem .75rem;border-radius:6px;font-size:.78rem;font-weight:600;">Post-Quantum Engine</span>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- SCANNING OVERLAY -->
+    <div class="scanning-overlay" id="scanOverlay">
+        <div class="scan-line-wrap">
+            <div class="scan-line"></div>
+            <div
+                style="padding:1rem;font-family:'Space Mono',monospace;font-size:.72rem;color:var(--muted);line-height:2">
+                <span style="color:var(--green)">✓</span> Extracting files...<br>
+                <span id="step2" style="color:var(--muted)">○ Parsing AST structure...</span><br>
+                <span id="step3" style="color:var(--muted)">○ Detecting RSA patterns...</span><br>
+                <span id="step4" style="color:var(--muted)">○ Checking ECC curves...</span><br>
+                <span id="step5" style="color:var(--muted)">○ Analyzing hash functions...</span><br>
+                <span id="step6" style="color:var(--muted)">○ Calculating risk score...</span><br>
+                <span id="step7" style="color:var(--muted)">○ Generating AI fixes...</span>
+            </div>
+        </div>
+        <div class="scan-text" id="scanText">Scanning your codebase...</div>
+    </div>
+
+    <footer>
+        QuantumReady v2.0 &nbsp;|&nbsp; Post-Quantum Security &nbsp;|&nbsp; NIST FIPS 203 · 204 · 205
+    </footer>
+
+    <script>
+        // ── NAV: Hamburger toggle ────────────────────────
+        const hamburgerBtn = document.getElementById('hamburgerBtn');
+        const mobileMenu = document.getElementById('mobileMenu');
+
+        if (hamburgerBtn) {
+            hamburgerBtn.addEventListener('click', () => {
+                const isOpen = mobileMenu.classList.toggle('open');
+                hamburgerBtn.classList.toggle('open', isOpen);
+                hamburgerBtn.setAttribute('aria-expanded', String(isOpen));
+            });
+        }
+
+        // Close mobile menu when a link is clicked
+        if (mobileMenu) {
+            mobileMenu.querySelectorAll('a').forEach(a => {
+                a.addEventListener('click', () => {
+                    mobileMenu.classList.remove('open');
+                    hamburgerBtn.classList.remove('open');
+                    hamburgerBtn.setAttribute('aria-expanded', 'false');
+                });
+            });
+        }
+
+        // Highlight active anchor-based nav links on scroll
+        const sections = ['how-it-works', 'algorithms', 'about'];
+        const navLinkEls = document.querySelectorAll('.nav-links .nav-link');
+        const mobLinkEls = document.querySelectorAll('.mobile-menu a');
+
+        function setActiveLink(href) {
+            navLinkEls.forEach(a => a.classList.toggle('active', a.getAttribute('href') === href));
+            mobLinkEls.forEach(a => a.classList.toggle('active', a.getAttribute('href') === href));
+        }
+
+        window.addEventListener('scroll', () => {
+            let current = '/';
+            sections.forEach(id => {
+                const el = document.getElementById(id);
+                if (el && window.scrollY >= el.offsetTop - 80) current = '#' + id;
+            });
+            setActiveLink(current);
+        }, { passive: true });
+        const fileInput = document.getElementById('fileInput');
+        const uploadZone = document.getElementById('uploadZone');
+        const chooseBtn = document.getElementById('chooseBtn');
+        const scanBtn = document.getElementById('scanBtn');
+        const fileName = document.getElementById('fileName');
+        const uploadForm = document.getElementById('uploadForm');
+        const overlay = document.getElementById('scanOverlay');
+
+        // File choose
+        if (chooseBtn) chooseBtn.addEventListener('click', () => fileInput && fileInput.click());
+
+        if (fileInput) {
+            fileInput.addEventListener('change', () => {
+                if (fileInput.files.length > 0) {
+                    fileName.textContent = fileInput.files[0].name;
+                    uploadZone.classList.add('has-file');
+                    scanBtn.disabled = false;
+                }
+            });
+        }
+
+        // Drag & drop
+        if (uploadZone) {
+            uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+            uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+            uploadZone.addEventListener('drop', e => {
+                e.preventDefault();
+                uploadZone.classList.remove('dragover');
+                if (e.dataTransfer.files.length > 0) {
+                    fileInput.files = e.dataTransfer.files;
+                    fileName.textContent = e.dataTransfer.files[0].name;
+                    uploadZone.classList.add('has-file');
+                    scanBtn.disabled = false;
+                }
+            });
+            uploadZone.addEventListener('click', e => {
+                if (e.target !== fileInput && !e.target.closest('button')) fileInput.click();
+            });
+        }
+
+        // Scan with loading overlay
+        if (uploadForm) {
+            uploadForm.addEventListener('submit', e => {
+                if (!fileInput || fileInput.files.length === 0) { e.preventDefault(); return; }
+                overlay.classList.add('active');
+                const steps = ['step2', 'step3', 'step4', 'step5', 'step6', 'step7'];
+                const msgs = ['Parsing AST structure...', 'Detecting RSA patterns...', 'Checking ECC curves...', 'Analyzing hash functions...', 'Calculating risk score...', 'Generating AI fixes...'];
+                steps.forEach((id, i) => {
+                    setTimeout(() => {
+                        const el = document.getElementById(id);
+                        if (el) { el.style.color = 'var(--cyan)'; el.textContent = '→ ' + msgs[i]; }
+                    }, 600 * (i + 1));
+                });
+            });
+        }
+
+        // Toggle vulnerability cards
+        function toggleCard(id) {
+            document.getElementById(id).classList.toggle('open');
+        }
+
+        // Copy code button
+        function copyCode(btn) {
+            const block = btn.closest('.diff-code');
+            const text = block.innerText.replace('copy', '').trim();
+            navigator.clipboard.writeText(text).then(() => {
+                btn.textContent = 'copied!';
+                setTimeout(() => btn.textContent = 'copy', 1500);
+            });
+        }
+
+        // ── GITHUB SCANNER CLIENT LOGIC ──────────────────
+        function switchScanMode(mode) {
+            const tabUpload = document.getElementById('tabUpload');
+            const tabGithub = document.getElementById('tabGithub');
+            const panelUpload = document.getElementById('panelUpload');
+            const panelGithub = document.getElementById('panelGithub');
+
+            if (mode === 'github') {
+                tabGithub.classList.add('active');
+                tabUpload.classList.remove('active');
+                panelGithub.classList.add('active');
+                panelUpload.classList.remove('active');
+            } else {
+                tabUpload.classList.add('active');
+                tabGithub.classList.remove('active');
+                panelUpload.classList.add('active');
+                panelGithub.classList.remove('active');
+            }
+        }
+
+        function fillGithubRepo(url, branch) {
+            const urlInput = document.getElementById('githubRepoUrl');
+            const branchInput = document.getElementById('githubBranch');
+            if (urlInput) urlInput.value = url;
+            if (branchInput && branch) branchInput.value = branch;
+        }
+
+        function clearGithubScan() {
+            const urlInput = document.getElementById('githubRepoUrl');
+            const branchInput = document.getElementById('githubBranch');
+            if (urlInput) urlInput.value = '';
+            if (branchInput) branchInput.value = '';
+            const streamCard = document.getElementById('liveStreamCard');
+            if (streamCard) streamCard.classList.remove('active');
+        }
+
+        function cancelGithubScan() {
+            const streamCard = document.getElementById('liveStreamCard');
+            if (streamCard) streamCard.classList.remove('active');
+            const btn = document.getElementById('githubScanBtn');
+            if (btn) { btn.disabled = false; btn.textContent = '🚀 Start Live Scan'; }
+        }
+
+        // Toast notifications
+        function showToast(message, type = 'info', duration = 6000) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            const icon = type === 'error' ? '🚫' : type === 'warning' ? '⚠️' : 'ℹ️';
+
+            toast.innerHTML = `
+                <div style="font-size:1.1rem;line-height:1">${icon}</div>
+                <div style="flex:1">${message}</div>
+                <button class="toast-close" onclick="this.parentElement.remove()">✕</button>
+            `;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.style.transition = 'opacity .3s ease, transform .3s ease';
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateX(20px)';
+                    setTimeout(() => toast.remove(), 300);
+                }
+            }, duration);
+        }
+
+        // Socket.IO Setup
+        let socket = null;
+        try {
+            if (typeof io !== 'undefined') {
+                socket = io();
+                socket.on('connect', () => {
+                    console.log('[Socket.IO] Connected to QuantumReady server');
+                });
+                socket.on('scan_status', data => {
+                    const statusText = document.getElementById('liveProgressText');
+                    if (statusText && data.message) statusText.textContent = data.message;
+                });
+                socket.on('file_scanned', data => {
+                    handleFileScanned(data);
+                });
+                socket.on('scan_complete', data => {
+                    handleScanComplete(data);
+                });
+                socket.on('scan_error', data => {
+                    handleScanError(data);
+                });
+            }
+        } catch (err) {
+            console.warn('[Socket.IO] Init error, will fallback to REST if needed', err);
+        }
+
+        let liveTotalFindings = 0;
+
+        function handleFileScanned(data) {
+            const fill = document.getElementById('liveProgressFill');
+            const text = document.getElementById('liveProgressText');
+            const percent = document.getElementById('liveProgressPercent');
+            const counter = document.getElementById('liveFeedCounter');
+            const list = document.getElementById('liveFeedList');
+
+            // Remove skeleton loader if present
+            const skeleton = list ? list.querySelector('.skeleton-loader') : null;
+            if (skeleton) skeleton.remove();
+
+            const current = data.progress.scanned;
+            const total = data.progress.total || 1;
+            const pct = Math.round((current / total) * 100);
+
+            if (data.findings && data.findings.length > 0) {
+                liveTotalFindings += data.findings.length;
+            }
+
+            if (fill) fill.style.width = pct + '%';
+            if (percent) percent.textContent = pct + '%';
+            if (text) text.textContent = `Scanning file ${current} of ${total} — ${data.file_path}`;
+            if (counter) counter.textContent = `${current}/${total} files scanned · 🔍 ${liveTotalFindings} vulnerability finding${liveTotalFindings !== 1 ? 's' : ''}`;
+
+            if (list) {
+                const item = document.createElement('div');
+                const risk = data.label || 'SAFE';
+                const riskClass = risk.includes('CRITICAL') ? 'risk-CRITICAL'
+                                : risk.includes('HIGH') ? 'risk-HIGH'
+                                : risk.includes('MODERATE') ? 'risk-MODERATE' : 'risk-SAFE';
+
+                const badgeColor = risk.includes('CRITICAL') ? 'var(--red)'
+                                 : risk.includes('HIGH') ? 'var(--orange)'
+                                 : risk.includes('MODERATE') ? 'var(--yellow)' : 'var(--green)';
+
+                const hasFindings = data.findings && data.findings.length > 0;
+                const fileId = 'live_file_' + Math.random().toString(36).substring(2, 9);
+
+                let findingsHtml = '';
+                if (hasFindings) {
+                    findingsHtml = `
+                        <button type="button" class="live-findings-toggle" onclick="document.getElementById('${fileId}').classList.toggle('open')">
+                            ▶ View ${data.findings.length} vulnerable finding${data.findings.length > 1 ? 's' : ''}
+                        </button>
+                        <div class="live-findings-detail" id="${fileId}">
+                            ${data.findings.map(f => `
+                                <div style="margin-bottom:.4rem;padding-bottom:.4rem;border-bottom:1px solid rgba(255,255,255,.07)">
+                                    <span style="color:${badgeColor};font-weight:700">[${f.vulnerability_type}] Line ${f.line_number}:</span>
+                                    <span style="color:var(--white);background:var(--surface);padding:0 .25rem;border-radius:2px">${f.line_content ? f.line_content.trim() : ''}</span>
+                                    <div style="color:var(--cyan);font-size:.7rem;margin-top:.15rem">→ Fix: ${f.fix || 'Migrate to PQC'}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+
+                item.className = `live-file-item ${riskClass}`;
+                item.innerHTML = `
+                    <div class="live-file-top">
+                        <div class="live-file-path">
+                            <span>📄</span>
+                            <span>${data.file_path}</span>
+                        </div>
+                        <div class="live-file-meta">
+                            <span class="score-pill">Score: ${data.score}/100</span>
+                            <span class="risk-badge" style="background:${badgeColor}22;color:${badgeColor};border:1px solid ${badgeColor}55;font-size:.65rem;padding:.15rem .45rem;border-radius:3px">
+                                ${risk}
+                            </span>
+                        </div>
+                    </div>
+                    ${findingsHtml}
+                `;
+
+                list.insertBefore(item, list.firstChild);
+            }
+        }
+
+        function handleScanComplete(data) {
+            const btn = document.getElementById('githubScanBtn');
+            if (btn) { btn.disabled = false; btn.textContent = '🚀 Start Live Scan'; }
+
+            const fill = document.getElementById('liveProgressFill');
+            const percent = document.getElementById('liveProgressPercent');
+            const text = document.getElementById('liveProgressText');
+            const title = document.getElementById('liveTitleText');
+            const dot = document.getElementById('liveDot');
+
+            if (fill) fill.style.width = '100%';
+            if (percent) percent.textContent = '100%';
+            if (text) text.textContent = `Completed scanning ${data.total_files} files in ${data.repo}. Overall Score: ${data.overall_score}/100`;
+            if (title) title.textContent = `Scan Complete — ${data.repo}`;
+            if (dot) { dot.style.background = 'var(--green)'; dot.style.boxShadow = '0 0 10px var(--green)'; }
+
+            showToast(`✅ Finished scanning ${data.repo}. Overall score: ${data.overall_score}/100 (${data.overall_label})`, 'info', 7000);
+
+            // Populate summary card
+            const summaryCard = document.getElementById('liveSummaryCard');
+            const summaryContent = document.getElementById('liveSummaryContent');
+            if (summaryCard && summaryContent) {
+                const rs = data.overall_score;
+                const rl = data.overall_label.split(' ')[0] || 'SAFE';
+                const grade = rs >= 80 ? 'A' : rs >= 60 ? 'B' : rs >= 40 ? 'C' : 'F';
+                const counts = data.summary || {};
+
+                let sentence = '';
+                if (rl === 'CRITICAL') {
+                    sentence = "🚨 Shor's Algorithm breaks RSA/ECC key generation in this codebase. Immediate migration to NIST FIPS 203/204 (Kyber/Dilithium) is required before 2030.";
+                } else if (rl === 'HIGH') {
+                    sentence = "⚠️ Legacy hashing (MD5/SHA-1) or deprecated TLS versions detected. Upgrade to SHA-3 (FIPS 202) and TLS 1.3 to ensure data integrity.";
+                } else if (rl === 'MODERATE' || rl === 'MEDIUM') {
+                    sentence = "⚡ Medium-risk key generation functions detected. Review algorithm parameters to verify no quantum-vulnerable cryptography is used.";
+                } else {
+                    sentence = "✅ Zero critical quantum vulnerabilities detected! Codebase meets NIST post-quantum security guidelines.";
+                }
+
+                const mlText = data.ml_prediction && data.ml_prediction.available
+                    ? `<div class="ml-box" style="margin-bottom:1rem">
+                         <span class="ml-icon">🤖</span>
+                         <span class="ml-label">ML Quantum Risk Classifier:</span>
+                         <span class="ml-value" style="color:${data.ml_prediction.level.includes('Low') ? 'var(--green)' : data.ml_prediction.level.includes('Medium') ? 'var(--yellow)' : 'var(--red)'}">
+                             ${data.ml_prediction.level}
+                         </span>
+                         <span class="ml-conf">(${Math.round(data.ml_prediction.probability * 100)}% confidence)</span>
+                       </div>` : '';
+
+                // Build Migration Priority Items for Live Stream
+                let migrationHtml = '';
+                const files = data.files || [];
+                const vulnFiles = files.filter(f => (f.findings && f.findings.length > 0) || (f.matches && f.matches.length > 0));
+                vulnFiles.sort((a, b) => a.score - b.score);
+
+                if (vulnFiles.length > 0) {
+                    migrationHtml = `
+                        <div class="migration-section" style="margin-top:1.5rem">
+                            <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
+                                <span>🚀 Migration Priority — Top Action Items</span>
+                                <span style="font-size:.72rem;color:var(--muted);font-weight:400">Sorted from highest → lowest risk</span>
+                            </div>
+                            <div class="migration-list">
+                                ${vulnFiles.map((f, i) => {
+                                    const fRisk = f.label ? f.label.split(' ')[0] : 'HIGH';
+                                    const barColor = fRisk === 'CRITICAL' ? 'var(--red)' : fRisk === 'HIGH' ? 'var(--orange)' : fRisk === 'MODERATE' ? 'var(--yellow)' : 'var(--green)';
+                                    const penWidth = 100 - f.score;
+                                    return `
+                                        <div class="migration-item">
+                                            <div class="migration-top">
+                                                <div style="display:flex;align-items:center;gap:.65rem">
+                                                    <span class="migration-rank">#${i + 1}</span>
+                                                    <span style="font-family:'Space Mono',monospace;font-size:.85rem;font-weight:700;color:var(--white)">📄 ${f.path}</span>
+                                                </div>
+                                                <div style="display:flex;align-items:center;gap:.5rem">
+                                                    <span class="score-pill">Score: ${f.score}/100</span>
+                                                    <span class="risk-badge risk-${fRisk}">${fRisk}</span>
+                                                </div>
+                                            </div>
+                                            <div class="migration-bar-wrap">
+                                                <div class="migration-bar-fill" style="width: ${penWidth}%; background: ${barColor};"></div>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                } else if (data.total_files > 0) {
+                    migrationHtml = `
+                        <div class="state-card success" style="margin-top:1.5rem">
+                            <div class="state-icon">🎉</div>
+                            <div class="state-title">Zero Quantum Vulnerabilities Discovered!</div>
+                            <div class="state-desc">Scanned all ${data.total_files} source files in ${data.repo}. No quantum-vulnerable algorithms (RSA, ECC, MD5, SHA-1, Diffie-Hellman) were detected. Your code complies with NIST FIPS 203/204/205 post-quantum standards.</div>
+                            <span class="risk-badge risk-SAFE" style="font-size:.8rem;padding:.3rem .8rem">Grade A — 100/100 Quantum Ready</span>
+                        </div>
+                    `;
+                }
+
+                summaryContent.innerHTML = `
+                    <div class="executive-summary-card risk-${rl}" style="margin-bottom:1rem">
+                        <div class="exec-top-row">
+                            <div class="exec-left">
+                                <div class="grade-badge grade-${grade}">${grade}</div>
+                                <div class="exec-title-box">
+                                    <h3>Assessment for ${data.repo} (${data.branch || 'main'})</h3>
+                                    <p class="exec-sentence">${sentence}</p>
+                                </div>
+                            </div>
+                            <div style="text-align:right">
+                                <span style="font-size:2rem;font-weight:800;font-family:'Space Mono',monospace;color:var(--cyan)">${data.overall_score}</span>
+                                <span style="color:var(--muted);font-size:1rem">/100</span>
+                                <div>
+                                    <span class="risk-badge risk-${rl}" style="font-size:.72rem">${data.overall_label}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    ${mlText}
+                    ${migrationHtml}
+                    <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1rem">
+                        <button type="button" class="btn btn-primary" onclick="window.scrollTo({top:0,behavior:'smooth'})">⬆ Back to Top</button>
+                    </div>
+                `;
+                summaryCard.style.display = 'block';
+            }
+        }
+
+        function handleScanError(data) {
+            const btn = document.getElementById('githubScanBtn');
+            if (btn) { btn.disabled = false; btn.textContent = '🚀 Start Live Scan'; }
+
+            const text = document.getElementById('liveProgressText');
+            const dot = document.getElementById('liveDot');
+            const list = document.getElementById('liveFeedList');
+
+            if (dot) { dot.style.background = 'var(--red)'; dot.style.boxShadow = '0 0 10px var(--red)'; }
+
+            const msg = data.message || data.error || 'An error occurred during repository scan.';
+            if (text) text.textContent = `Error: ${msg}`;
+
+            // Remove skeleton if any
+            if (list) {
+                const skeleton = list.querySelector('.skeleton-loader');
+                if (skeleton) skeleton.remove();
+            }
+
+            if (data.rate_limited) {
+                if (list) {
+                    list.innerHTML = `
+                        <div class="state-card warning">
+                            <div class="state-icon">⚠️</div>
+                            <div class="state-title">GitHub API Rate Limit Reached</div>
+                            <div class="state-desc">Unauthenticated requests to the GitHub API are limited to 60 requests/hour.<br><br>
+                            To unlock <strong>5,000 requests/hour</strong>, set a personal access token in your environment:<br>
+                            <code style="background:var(--surf2);padding:.4rem .8rem;border-radius:4px;color:var(--cyan);display:inline-block;margin-top:.5rem;font-family:'Space Mono',monospace;">$env:GITHUB_TOKEN="your_github_pat_token"</code></div>
+                            <button type="button" class="btn btn-primary" onclick="startGithubLiveScan()">🔄 Try Again</button>
+                        </div>
+                    `;
+                }
+                showToast(
+                    `<strong>GitHub API Rate Limit Reached!</strong><br>
+                    Unauthenticated requests to the GitHub API are limited to 60 requests/hour.<br>
+                    Set a personal access token via <code>GITHUB_TOKEN</code> environment variable to unlock 5,000 requests/hour.`,
+                    'warning',
+                    10000
+                );
+            } else if (data.not_found) {
+                if (list) {
+                    list.innerHTML = `
+                        <div class="state-card error">
+                            <div class="state-icon">🔍</div>
+                            <div class="state-title">Repository Not Found</div>
+                            <div class="state-desc">${msg}<br>Check that the repository exists, is public, and the branch name is correct.</div>
+                            <div style="display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;margin-top:.5rem">
+                                <span style="font-size:.78rem;color:var(--muted)">Try demo:</span>
+                                <span class="sample-tag" onclick="fillGithubRepo('https://github.com/quantum/crypto-demo', 'main');startGithubLiveScan();">quantum/crypto-demo</span>
+                            </div>
+                        </div>
+                    `;
+                }
+                showToast(`<strong>Repository Not Found</strong>: ${msg}`, 'error', 7000);
+            } else {
+                if (list) {
+                    list.innerHTML = `
+                        <div class="state-card error">
+                            <div class="state-icon">🚫</div>
+                            <div class="state-title">Scan Failed</div>
+                            <div class="state-desc">${msg}</div>
+                            <button type="button" class="btn btn-primary" onclick="startGithubLiveScan()">🔄 Retry Scan</button>
+                        </div>
+                    `;
+                }
+                showToast(`<strong>Scan Failed</strong>: ${msg}`, 'error', 7000);
+            }
+        }
+
+        function startGithubLiveScan() {
+            const urlInput = document.getElementById('githubRepoUrl');
+            const branchInput = document.getElementById('githubBranch');
+            const repoUrl = (urlInput ? urlInput.value : '').trim();
+            const branch = (branchInput ? branchInput.value : '').trim();
+
+            if (!repoUrl) {
+                showToast('Please enter a GitHub repository URL (e.g., https://github.com/owner/repo)', 'warning', 5000);
+                if (urlInput) urlInput.focus();
+                return;
+            }
+
+            const btn = document.getElementById('githubScanBtn');
+            if (btn) { btn.disabled = true; btn.textContent = '⚡ Scanning...'; }
+
+            liveTotalFindings = 0;
+
+            // Reset UI for new scan
+            const streamCard = document.getElementById('liveStreamCard');
+            const fill = document.getElementById('liveProgressFill');
+            const percent = document.getElementById('liveProgressPercent');
+            const text = document.getElementById('liveProgressText');
+            const title = document.getElementById('liveTitleText');
+            const pill = document.getElementById('liveRepoPill');
+            const dot = document.getElementById('liveDot');
+            const counter = document.getElementById('liveFeedCounter');
+            const list = document.getElementById('liveFeedList');
+            const summaryCard = document.getElementById('liveSummaryCard');
+
+            if (streamCard) streamCard.classList.add('active');
+            if (fill) fill.style.width = '0%';
+            if (percent) percent.textContent = '0%';
+            if (text) text.textContent = 'Connecting to GitHub REST API...';
+            if (title) title.textContent = 'Live Scanning Repository';
+            if (pill) pill.textContent = repoUrl.replace(/^https?:\/\/github\.com\//i, '');
+            if (dot) { dot.style.background = 'var(--cyan)'; dot.style.boxShadow = '0 0 10px var(--cyan)'; }
+            if (counter) counter.textContent = '0 files scanned · 🔍 0 vulnerabilities found';
+            if (summaryCard) summaryCard.style.display = 'none';
+
+            // Insert pulse skeleton loader while fetching tree
+            if (list) {
+                list.innerHTML = `
+                    <div class="skeleton-loader">
+                        <div class="skeleton-box"></div>
+                        <div class="skeleton-box"></div>
+                        <div class="skeleton-box"></div>
+                    </div>
+                `;
+            }
+
+            // Smooth scroll to live stream card
+            if (streamCard) streamCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            // Trigger via Socket.IO if connected
+            if (socket && socket.connected) {
+                socket.emit('start_github_scan', { repo_url: repoUrl, branch: branch });
+            } else {
+                // Fallback via REST API if WebSocket not yet connected
+                if (text) text.textContent = 'Initiating scan via API...';
+                fetch('/api/scan-github', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ repo_url: repoUrl, branch: branch })
+                })
+                .then(resp => {
+                    if (resp.status === 429) {
+                        return resp.json().then(d => { throw { rate_limited: true, error: d.error }; });
+                    }
+                    if (resp.status === 404) {
+                        return resp.json().then(d => { throw { not_found: true, error: d.error }; });
+                    }
+                    if (!resp.ok) {
+                        return resp.json().then(d => { throw { error: d.error || 'Server error' }; });
+                    }
+                    return resp.json();
+                })
+                .then(data => {
+                    // Simulate progressive stream of the files
+                    const files = data.files || [];
+                    const total = files.length;
+                    if (list) list.innerHTML = '';
+                    files.forEach((file, idx) => {
+                        setTimeout(() => {
+                            handleFileScanned({
+                                file_path: file.path,
+                                findings: file.findings,
+                                score: file.score,
+                                label: file.label,
+                                progress: { scanned: idx + 1, total: total }
+                            });
+                        }, idx * 100);
+                    });
+                    setTimeout(() => {
+                        handleScanComplete(data);
+                    }, files.length * 100 + 200);
+                })
+                .catch(err => {
+                    handleScanError(err);
+                });
+            }
+        }
+    </script>
+</body>
+
+</html>
