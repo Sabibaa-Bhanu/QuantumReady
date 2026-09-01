@@ -528,7 +528,8 @@ def api_scan_content_preflight():
 
 @app.route('/favicon.ico')
 def favicon():
-    return ('', 204)
+    return send_from_directory(os.path.join(app.root_path, 'static'),
+                               'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 
 @app.route('/api/scan-github', methods=['POST'])
