@@ -980,6 +980,99 @@
             </div>
         </div>
 
+        <!-- 1.5. COMPLETE AUTO-REMEDIATED SOURCE FILE (HERO FEATURE — ALL FIXES IMPLEMENTED AT ONCE) -->
+        {% if report.report and report.report.files %}
+        {% for f in report.report.files %}
+        {% if f.fixed_code and (f.matches or (f.findings and f.findings|length > 0)) %}
+        <div class="vuln-cards-section" id="full-fixed-{{ loop.index }}" style="margin-bottom: 2.5rem;">
+            <div style="background: linear-gradient(135deg, rgba(0, 229, 255, 0.08), rgba(0, 255, 157, 0.05)); border: 1px solid var(--cyan); border-radius: 18px; padding: 1.75rem; box-shadow: 0 12px 40px rgba(0, 229, 255, 0.12); position: relative;">
+                
+                <!-- Card Header -->
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 1rem;">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 0.65rem; margin-bottom: 0.35rem;">
+                            <span class="live-pulse-badge" style="background: rgba(0, 255, 157, 0.15); border-color: var(--green); color: var(--green);">
+                                ⚡ ALL FIXES IMPLEMENTED AT ONCE
+                            </span>
+                            <span style="font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700; color: var(--white);">
+                                📄 {{ f.path }}
+                            </span>
+                        </div>
+                        <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--white); letter-spacing: -0.5px;">
+                            Complete Quantum-Safe Remediated Source File
+                        </h2>
+                        <p style="font-size: 0.82rem; color: #94A3B8; margin-top: 0.2rem;">
+                            Every single detected vulnerability (RSA, ECC, MD5, SHA-1, Weak TLS, Diffie-Hellman) has been replaced with NIST FIPS 203/204/205 quantum-safe primitives.
+                        </p>
+                    </div>
+
+                    <!-- Quick Action Buttons -->
+                    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                        <button class="btn-pro" style="margin-top: 0; padding: 0.75rem 1.35rem; font-size: 0.85rem; width: auto; background: linear-gradient(135deg, var(--cyan), var(--green));" onclick="copyFullFileCode('full-fixed-code-{{ loop.index }}', this)">
+                            📋 Copy Entire Fixed Code (1-Click)
+                        </button>
+                        <button class="btn-export primary" style="cursor: pointer; padding: 0.75rem 1.15rem;" onclick="downloadFixedFile('{{ f.path }}', 'full-fixed-code-{{ loop.index }}')">
+                            💾 Download Fixed File
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Code View Selector Tabs -->
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 0.75rem; flex-wrap: wrap;">
+                    <button class="btn-export active" id="tab-btn-fixed-{{ loop.index }}" style="background: rgba(0, 229, 255, 0.15); border-color: var(--cyan); color: var(--cyan); cursor: pointer;" onclick="switchCodeTab('{{ loop.index }}', 'fixed')">
+                        ✅ Complete Remediated File (Post-Quantum Safe)
+                    </button>
+                    <button class="btn-export" id="tab-btn-orig-{{ loop.index }}" style="cursor: pointer;" onclick="switchCodeTab('{{ loop.index }}', 'orig')">
+                        ❌ Original Vulnerable File
+                    </button>
+                    {% if f.changelog %}
+                    <button class="btn-export" id="tab-btn-log-{{ loop.index }}" style="cursor: pointer;" onclick="switchCodeTab('{{ loop.index }}', 'log')">
+                        📝 Remediation Changelog ({{ f.changelog|length }} fixes applied)
+                    </button>
+                    {% endif %}
+                </div>
+
+                <!-- View 1: Fixed Code Container -->
+                <div id="view-fixed-{{ loop.index }}" style="background: rgba(6, 9, 19, 0.95); border: 1px solid rgba(0, 229, 255, 0.25); border-radius: 12px; overflow: hidden; position: relative;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.65rem 1rem; background: rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.06); font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted);">
+                        <span>NIST FIPS 203 (ML-KEM) / FIPS 204 (ML-DSA) / FIPS 205 (SLH-DSA) COMPLIANT</span>
+                        <span style="color: var(--green); font-weight: 700;">● 100% COPY-READY</span>
+                    </div>
+                    <pre style="margin: 0; padding: 1.25rem; overflow-x: auto; font-family: var(--font-mono); font-size: 0.85rem; line-height: 1.65; color: #F1F5F9; max-height: 560px;"><code id="full-fixed-code-{{ loop.index }}">{{ f.fixed_code }}</code></pre>
+                </div>
+
+                <!-- View 2: Original Code Container -->
+                <div id="view-orig-{{ loop.index }}" style="display: none; background: rgba(6, 9, 19, 0.95); border: 1px solid rgba(255, 42, 84, 0.25); border-radius: 12px; overflow: hidden; position: relative;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.65rem 1rem; background: rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.06); font-family: var(--font-mono); font-size: 0.72rem; color: var(--red);">
+                        <span>ORIGINAL CODE WITH DETECTED QUANTUM VULNERABILITIES</span>
+                        <span>⚠️ VULNERABLE</span>
+                    </div>
+                    <pre style="margin: 0; padding: 1.25rem; overflow-x: auto; font-family: var(--font-mono); font-size: 0.85rem; line-height: 1.65; color: #CBD5E1; max-height: 560px;"><code id="full-orig-code-{{ loop.index }}">{{ f.original_code }}</code></pre>
+                </div>
+
+                <!-- View 3: Changelog Container -->
+                {% if f.changelog %}
+                <div id="view-log-{{ loop.index }}" style="display: none; background: rgba(6, 9, 19, 0.95); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 1.25rem;">
+                    <div style="display: grid; gap: 0.65rem;">
+                        {% for c in f.changelog %}
+                        <div style="font-size: 0.8rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; background: rgba(255,255,255,0.02); padding: 0.65rem 0.85rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.04);">
+                            <span style="font-family: var(--font-mono); color: var(--cyan); background: rgba(0,229,255,0.08); padding: 0.15rem 0.55rem; border-radius: 4px; font-weight: 700;">Line {{ c.line }}</span>
+                            <strong style="color: var(--red);">{{ c.vuln }}</strong>
+                            <span style="color: var(--muted);">→</span>
+                            <span style="color: var(--green); font-family: var(--font-mono); font-weight: 700;">{{ c.replacement }}</span>
+                            <span class="tag-pill" style="font-size: 0.68rem; margin-left: auto;">{{ c.standard }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+
         <!-- 2. MIGRATION PRIORITY SECTION (SORTED HIGHEST -> LOWEST RISK) -->
         {% set vulnerable_files = [] %}
         {% if report.report and report.report.files %}
@@ -1062,7 +1155,7 @@
         <!-- 3. RECOMMENDED QUANTUM-SAFE CODE REPLACEMENTS -->
         {% if report.report and report.report.recommendations %}
         <div class="vuln-cards-section">
-            <div class="section-title">🔐 Recommended Quantum-Safe Code Replacements</div>
+            <div class="section-title">🔐 NIST Post-Quantum Recommendations & Diffs</div>
             <div>
                 {% for rec in report.report.recommendations %}
                 {% set risk_class = 'crit' if rec.vulnerability in ['RSA','ECC','DiffieHellman','WeakRSAKeySize'] else 'high' if rec.vulnerability in ['MD5','SHA1','WeakTLS'] else 'med' %}
@@ -1152,59 +1245,6 @@
                 </div>
                 {% endfor %}
             </div>
-        </div>
-        {% endif %}
-        {% endfor %}
-        {% endif %}
-
-        <!-- 4. FULL AUTO-REMEDIATED SOURCE FILES (1-CLICK COPY READY) -->
-        {% if report.report and report.report.files %}
-        {% for f in report.report.files %}
-        {% if f.fixed_code and (f.matches or (f.findings and f.findings|length > 0)) %}
-        <div class="vuln-cards-section" id="full-fixed-{{ loop.index }}">
-            <div class="section-title" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
-                <div style="display: flex; align-items: center; gap: 0.65rem;">
-                    <span>⚡ Complete Auto-Remediated Code:</span>
-                    <code style="color: var(--cyan); background: rgba(0,229,255,0.08); padding: 0.2rem 0.6rem; border-radius: 6px; font-size: 0.85rem; border: 1px solid rgba(0,229,255,0.2);">{{ f.path }}</code>
-                </div>
-                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <button class="btn-export" style="cursor: pointer;" onclick="copyFullFileCode('full-fixed-code-{{ loop.index }}', this)">
-                        📋 Copy Entire Fixed File
-                    </button>
-                    <button class="btn-export primary" style="cursor: pointer;" onclick="downloadFixedFile('{{ f.path }}', 'full-fixed-code-{{ loop.index }}')">
-                        💾 Download Remediated File
-                    </button>
-                </div>
-            </div>
-
-            <!-- Full Code Box -->
-            <div style="background: rgba(6, 9, 19, 0.9); border: 1px solid var(--border-glow); border-radius: 14px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.5);">
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1.25rem; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.06); font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted);">
-                    <span>NIST FIPS 203/204/205 POST-QUANTUM COMPLIANT</span>
-                    <span style="color: var(--green); font-weight: 700;">● 100% READY TO COPY & DEPLOY</span>
-                </div>
-                <pre style="margin: 0; padding: 1.25rem; overflow-x: auto; font-family: var(--font-mono); font-size: 0.85rem; line-height: 1.6; color: #E2E8F0; max-height: 540px;"><code id="full-fixed-code-{{ loop.index }}">{{ f.fixed_code }}</code></pre>
-            </div>
-
-            <!-- Remediation Changelog Table -->
-            {% if f.changelog %}
-            <div style="margin-top: 1rem; background: rgba(13, 20, 36, 0.6); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.25rem;">
-                <strong style="font-size: 0.82rem; color: var(--white); display: block; margin-bottom: 0.6rem; font-family: var(--font-mono);">
-                    📝 Auto-Remediation Changelog ({{ f.changelog|length }} fixes applied):
-                </strong>
-                <div style="display: grid; gap: 0.5rem;">
-                    {% for c in f.changelog %}
-                    <div style="font-size: 0.78rem; display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap;">
-                        <span style="font-family: var(--font-mono); color: var(--cyan); background: rgba(0,229,255,0.08); padding: 0.1rem 0.45rem; border-radius: 4px; font-weight: 700;">Line {{ c.line }}</span>
-                        <strong style="color: var(--red);">{{ c.vuln }}</strong>
-                        <span style="color: var(--muted);">→</span>
-                        <span style="color: var(--green); font-family: var(--font-mono);">{{ c.replacement }}</span>
-                        <span class="tag-pill" style="font-size: 0.65rem; padding: 0.1rem 0.4rem;">{{ c.standard }}</span>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
         </div>
         {% endif %}
         {% endfor %}
@@ -1415,6 +1455,35 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+        }
+
+        function switchCodeTab(index, tab) {
+            const fixedView = document.getElementById('view-fixed-' + index);
+            const origView = document.getElementById('view-orig-' + index);
+            const logView = document.getElementById('view-log-' + index);
+            const btnFixed = document.getElementById('tab-btn-fixed-' + index);
+            const btnOrig = document.getElementById('tab-btn-orig-' + index);
+            const btnLog = document.getElementById('tab-btn-log-' + index);
+
+            if (fixedView) fixedView.style.display = (tab === 'fixed') ? 'block' : 'none';
+            if (origView) origView.style.display = (tab === 'orig') ? 'block' : 'none';
+            if (logView) logView.style.display = (tab === 'log') ? 'block' : 'none';
+
+            if (btnFixed) {
+                btnFixed.style.background = (tab === 'fixed') ? 'rgba(0, 229, 255, 0.15)' : 'rgba(255,255,255,0.04)';
+                btnFixed.style.borderColor = (tab === 'fixed') ? 'var(--cyan)' : 'var(--border)';
+                btnFixed.style.color = (tab === 'fixed') ? 'var(--cyan)' : 'var(--white)';
+            }
+            if (btnOrig) {
+                btnOrig.style.background = (tab === 'orig') ? 'rgba(255, 42, 84, 0.15)' : 'rgba(255,255,255,0.04)';
+                btnOrig.style.borderColor = (tab === 'orig') ? 'var(--red)' : 'var(--border)';
+                btnOrig.style.color = (tab === 'orig') ? 'var(--red)' : 'var(--white)';
+            }
+            if (btnLog) {
+                btnLog.style.background = (tab === 'log') ? 'rgba(0, 255, 157, 0.15)' : 'rgba(255,255,255,0.04)';
+                btnLog.style.borderColor = (tab === 'log') ? 'var(--green)' : 'var(--border)';
+                btnLog.style.color = (tab === 'log') ? 'var(--green)' : 'var(--white)';
+            }
         }
 
         // Live WebSocket Scanning via Socket.IO
