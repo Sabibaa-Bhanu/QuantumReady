@@ -504,21 +504,6 @@ def favicon():
     return ('', 204)
 
 
-@app.route('/model-info', methods=['GET'])
-@app.route('/api/model-info', methods=['GET'])
-def model_info():
-    """Return transparent metadata about the finding-level and file-level ML risk models."""
-    try:
-        import ml_risk_scorer
-        info = ml_risk_scorer.get_model_info()
-    except Exception as e:
-        info = {'error': str(e)}
-
-    response = jsonify(info)
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    return response
-
-
 @app.route('/api/scan-github', methods=['POST'])
 def api_scan_github():
     """REST endpoint to trigger a GitHub repository scan."""

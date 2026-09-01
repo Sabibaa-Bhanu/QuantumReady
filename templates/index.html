@@ -831,6 +831,23 @@
 </head>
 <body>
 
+    <!-- TOP NAVBAR -->
+    <nav class="navbar">
+        <a href="/" class="logo-wrap">
+            <div class="logo-icon">⚛</div>
+            <span class="logo-text">QuantumReady</span>
+            <span class="tag-pill">v2.0 ENGINE</span>
+        </a>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <span class="tag-pill" style="color: var(--green); border-color: rgba(0, 255, 157, 0.3);">
+                ● NIST FIPS 203/204/205 READY
+            </span>
+            <a href="https://csrc.nist.gov/projects/post-quantum-cryptography" target="_blank" class="btn-export" style="padding: 0.35rem 0.75rem; font-size: 0.72rem;">
+                NIST Standards ↗
+            </a>
+        </div>
+    </nav>
+
     <div class="container">
 
         <!-- ══════════════════════ RESULTS VIEW (IF REPORT EXISTS) ══════════════════════ -->
@@ -1199,26 +1216,15 @@
                 {% set risk_class = 'crit' if finding.risk=='CRITICAL' else 'high' if finding.risk=='HIGH' else 'med' if finding.risk=='MEDIUM' else 'low' %}
                 <div class="vuln-card-pro {{ risk_class }} open">
                     <div class="vuln-card-head" onclick="this.parentElement.classList.toggle('open')">
-                        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
                             <span class="risk-badge risk-{{ finding.risk }}">{{ finding.risk }}</span>
                             <strong style="font-size: 0.9rem; color: var(--white);">{{ finding.vulnerability_type }}</strong>
                             <span style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted);">Line {{ finding.line_number }}</span>
-                            {% if finding.usage_context %}
-                            <span class="tag-pill" style="font-size: 0.65rem; padding: 0.15rem 0.45rem;">Ctx: {{ finding.usage_context }}</span>
-                            {% endif %}
-                            {% if finding.ml_risk_score is defined %}
-                            <span class="score-pill" style="font-size: 0.72rem; color: var(--cyan);">ML Risk: {{ finding.ml_risk_score }}/100</span>
-                            {% endif %}
                         </div>
                         <span style="color: var(--muted); font-size: 0.8rem;">▾</span>
                     </div>
                     <div class="vuln-card-body">
-                        <p style="font-size: 0.85rem; color: #94A3B8; margin-bottom: 0.5rem;">{{ finding.description }}</p>
-                        {% if finding.risk_rationale %}
-                        <div style="font-size: 0.8rem; background: rgba(0, 229, 255, 0.05); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 8px; padding: 0.6rem 0.85rem; margin-bottom: 0.85rem; color: #E2E8F0;">
-                            <strong style="color: var(--cyan);">🤖 ML Risk Rationale:</strong> {{ finding.risk_rationale }}
-                        </div>
-                        {% endif %}
+                        <p style="font-size: 0.85rem; color: #94A3B8; margin-bottom: 0.85rem;">{{ finding.description }}</p>
                         <div class="diff-grid-split">
                             <div class="diff-panel-box">
                                 <div class="diff-panel-tag bad">❌ Line {{ finding.line_number }}</div>

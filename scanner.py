@@ -121,13 +121,6 @@ def scan_text_with_lines(text: str) -> List[Dict[str, Any]]:
                         "description": vuln_info["description"],
                         "fix": vuln_info["fix"],
                     })
-
-    try:
-        import ml_risk_scorer
-        findings = ml_risk_scorer.enrich_findings_with_ml(findings, all_content=text)
-    except Exception:
-        pass
-
     return findings
 
 
